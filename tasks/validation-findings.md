@@ -7,3 +7,7 @@ The initial loading state resolves once the authentication session and protected
 ## Employee Workspace Correction
 
 The corrected homepage renders without sign-in, account controls, generated photography, or console entry points. Desktop validation confirms the intended sequence: welcome and date, daily signals, important announcement, company news, onboarding, internal opportunities, official events, and an industry context panel. Mobile validation confirms the same content collapses into a readable single-column employee feed with functional notice dismissal and opportunity expansion controls available in the UI.
+
+## Split Onboarding Hero Redesign
+
+Desktop validation confirms the first fold is now divided into a copy-led onboarding welcome on the left and an adjacent dark, horizontally scrollable onboarding-story gallery on the right. The generated gallery artwork is abstract and architectural rather than employee photography. Company news follows immediately in three distinct visual cards, paired with a high-contrast announcement board. Mobile validation confirms the same hierarchy becomes a readable vertical feed; the gallery remains horizontally scrollable and the cards retain their visual differentiation.

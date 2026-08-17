@@ -11,3 +11,6 @@
 - [x] Rebuild the homepage information architecture for welcome, date, onboarding, internal jobs, news, announcements, holidays, events, and industry news.
 - [x] Remove generated photography and deliver a content-first responsive internal workspace layout.
 - [x] Replace the Workspace header logo and browser favicon with the supplied official Arabtec logo asset.
+- [x] Redesign the first page as a split onboarding hero with left-side copy and a horizontal visual onboarding gallery.
+- [x] Modernize company news and announcement sections with richer visual hierarchy and content cards.
+- [x] Validate the redesigned homepage on desktop and mobile before publishing.
