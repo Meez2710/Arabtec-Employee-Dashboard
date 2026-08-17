@@ -3,16 +3,16 @@ import { dailyDigestDraftSchema } from "./digestSchemas";
 
 const validDraft = {
   id: 1,
-  title: "Thursday welcome digest",
-  introduction: "Four incoming joiners, clear preparation actions, and the weekly company update.",
+  title: "Introductory demo digest",
+  introduction: "Demo content used only to validate the digest input shape.",
   digestDate: "2026-08-20",
   scheduledFor: new Date("2026-08-20T06:00:00.000Z"),
   recipientCount: 382,
   entries: [
     {
-      category: "People Ops",
-      headline: "Four people join us this month",
-      summary: "The joiner strip and welcome note are ready for review.",
+      category: "Introductory demo",
+      headline: "Demo entry",
+      summary: "This text exists only to validate the digest input shape.",
       audience: "employees" as const,
       sortOrder: 0,
     },
@@ -22,7 +22,7 @@ const validDraft = {
 describe("dailyDigestDraftSchema", () => {
   it("accepts a bounded, publishable digest draft", () => {
     expect(dailyDigestDraftSchema.parse(validDraft)).toMatchObject({
-      title: "Thursday welcome digest",
+      title: "Introductory demo digest",
       recipientCount: 382,
     });
   });

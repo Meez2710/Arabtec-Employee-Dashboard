@@ -37,3 +37,7 @@ The bulk contract test passed after the item-level reporting update. The public 
 The employee homepage remains free of any management link or control. The former `/manage` path now renders the application’s not-found screen, while the dedicated `/_admin/workspace-content-7c9f` route resolves to the existing role-gated manager experience. Type checking and production build pass after the route change.
 
 Direct route screenshots confirm that `/manage` renders the application’s 404 surface and that `/_admin/workspace-content-7c9f` alone opens the content manager. The public home route contains no link or control that exposes the manager.
+
+## Derived Greeting and Metrics
+
+The welcome surface now renders an impersonal greeting based on local time and today’s formatted date. It does not render an employee name. Announcement and opportunity metrics are calculated from published card records only; with no published records, no metric tiles are displayed. The hardcoded onboarding-progress implementation, fixed stat values, and literal open-position label are absent from the active source. All unit tests, TypeScript validation, and the production build pass.

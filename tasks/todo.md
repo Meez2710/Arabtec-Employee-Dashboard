@@ -1,41 +1,10 @@
-# Authenticated Daily Digest Console
+# Project TODO
 
-- [x] Upgrade the project to the authenticated full-stack foundation and inspect the generated auth/data boundaries.
-- [x] Define Editor and Admin permissions, digest lifecycle states, and review/publish acceptance criteria.
-- [x] Implement role-aware console routes, digest review controls, and safe frontend state transitions.
-- [x] Validate authentication states, console interactions, TypeScript, production build, and responsive rendering.
-- [x] Resolve full-stack compilation and runtime issues introduced during the capability upgrade.
-- [x] Superseded: enforce and test digest lifecycle guards after the user removed the authentication and console requirement.
-- [x] Superseded: exercise the Admin console after the user removed the authentication and console requirement.
-- [x] Remove authentication/login and the Editor/Admin console routes from the employee-facing workspace.
-- [x] Rebuild the homepage information architecture for welcome, date, onboarding, internal jobs, news, announcements, holidays, events, and industry news.
-- [x] Remove generated photography and deliver a content-first responsive internal workspace layout.
-- [x] Replace the Workspace header logo and browser favicon with the supplied official Arabtec logo asset.
-- [x] Redesign the first page as a split onboarding hero with left-side copy and a horizontal visual onboarding gallery.
-- [x] Modernize company news and announcement sections with richer visual hierarchy and content cards.
-- [x] Validate the redesigned homepage on desktop and mobile before publishing.
-- [x] Research professional intranet and editorial-dashboard patterns for the next Workspace layout iteration.
-- [x] Build Option A with two automated right-side content feeds and a fixed calendar, index, and activity column.
-- [x] Build Option B as a usability-led alternative and make both layouts easy to compare.
-- [x] Validate both layout options on desktop and mobile before presentation.
-- [x] Replace the option-comparison homepage with the supplied reference-led employee dashboard structure.
-- [x] Place new-joiner media in a secondary middle/right card instead of the primary welcome focus.
-- [x] Add configurable content-card fields for title, text, external link, uploaded image, and image-from-link preview.
-- [x] Make dashboard cards and quick-access destinations clickable with safe external-link behavior.
-- [x] Validate the reference-led dashboard layout and content-card interactions on desktop and mobile.
-- [x] Reduce the new-joiner card to the standard dashboard-card footprint and place it in the right-side support area.
-- [x] Validate the revised dashboard emphasis on desktop and mobile.
-- [x] Restore the newcomer image without a narrow crop and reduce all primary dashboard cards to equal square proportions.
-- [x] Replace the top-row onboarding-progress card with the announcements module.
-- [x] Add professional hover states for employee, company-news, industry, activity, and announcement cards.
-- [x] Extend the Admin content manager with scalable “add hover card” controls for image/text or link-based cards.
-- [x] Validate the square-card layout, hover interactions, and Admin hover-card controls on desktop and mobile.
-- [x] Add a bulk employee hover-card import flow with multi-image selection and profile-detail validation.
-- [x] Persist multiple imported employee hover cards safely and show import success or per-record errors.
-- [x] Add a bulk employee preview and review surface to the Admin manager.
-- [x] Validate bulk employee import behavior and public dashboard rendering.
-- [x] Add item-level success and error reporting to the bulk employee import workflow.
-- [x] Verify batch request contracts, storage-path handling, and public hover-card data without seeding unapproved employee records.
-- [x] Verify the updated bulk-import contract and public hover-card storage paths without creating employee records.
-- [x] Move the Admin manager to a dedicated unlinked route that is absent from all employee-facing UI.
-- [x] Validate the dedicated Admin route and retain role-gated access behavior.
+- [x] Label introductory-only dashboard content as demo material and remove fabricated names, milestones, and announcements.
+- [x] Render a neutral “No update published yet” state when dashboard card content is deleted or unavailable.
+- [x] Remove the MobilePreview and Roadmap modules and all related homepage/CSS references.
+- [x] Restore pinch-zoom by removing the viewport maximum-scale restriction.
+- [x] Run type checks and the production build after the content-model correction.
+- [x] Replace the personalized welcome and literal stat counters with an impersonal date-aware greeting and derived metrics only.
+- [x] Remove the dead onboarding-progress implementation and any hardcoded open-position count.
+- [x] Validate that all employee-facing numbers are queried or absent.

@@ -59,58 +59,10 @@ export async function getUserByOpenId(openId: string) {
   return result[0];
 }
 
-const starterEntries = [
-  {
-    category: "People Ops",
-    headline: "Four people join us this month",
-    summary: "The welcome strip, role details, and first-week information are prepared for the Thursday digest.",
-    audience: "employees" as const,
-    sortOrder: 0,
-  },
-  {
-    category: "Projects",
-    headline: "Marina Tower reaches level 40",
-    summary: "A concise progress note with the next safety and access milestones for site teams.",
-    audience: "employees" as const,
-    sortOrder: 1,
-  },
-  {
-    category: "HSE",
-    headline: "500 days without a lost-time incident",
-    summary: "The milestone is included with a practical reminder about site induction and PPE readiness.",
-    audience: "employees" as const,
-    sortOrder: 2,
-  },
-];
-
-const starterWorkspaceCards = [
-  { slot: "new_joiner" as const, eyebrow: "New to Arabtec", title: "Mohamed Tarek", body: "Site Engineer · Project Delivery. Mohamed brings five years of construction and site-execution experience. Give him a warm Arabtec welcome.", linkUrl: null, imageUrl: "/manus-storage/arabtec-new-joiner-supporting_a59391ca.jpg", imageMode: "upload" as const, sortOrder: 0, active: 1 },
-  { slot: "company_news" as const, eyebrow: "Project update", title: "Marina Tower reaches its next delivery milestone", body: "The delivery team has completed its next critical package and is preparing the handover sequence.", linkUrl: "https://www.arabtec.com", imageUrl: "/manus-storage/arabtec-onboarding-roadmap_05a4b024.jpg", imageMode: "upload" as const, sortOrder: 1, active: 1 },
-  { slot: "announcement" as const, eyebrow: "Safety", title: "Updated site induction reminder", body: "Complete the updated induction reminder before Wednesday’s safety briefing.", linkUrl: null, imageUrl: null, imageMode: "none" as const, sortOrder: 2, active: 1 },
-  { slot: "activity" as const, eyebrow: "Activities", title: "Employee Sports Day", body: "Building connections beyond the workplace.", linkUrl: null, imageUrl: "/manus-storage/arabtec-onboarding-community_f74340e9.jpg", imageMode: "upload" as const, sortOrder: 3, active: 1 },
-  { slot: "industry_watch" as const, eyebrow: "Market intelligence", title: "Construction market outlook", body: "Relevant industry signals for project, commercial, and site teams.", linkUrl: "https://www.arabtec.com", imageUrl: null, imageMode: "none" as const, sortOrder: 4, active: 1 },
-  { slot: "opportunity" as const, eyebrow: "Internal opportunity", title: "Planning Engineer", body: "Cairo · Projects · Internal move. Applications close 21 August.", linkUrl: null, imageUrl: null, imageMode: "none" as const, sortOrder: 5, active: 1 },
-];
-
-const starterWorkspaceHoverCards = [
-  { parentSlot: "new_joiner" as const, eyebrow: "Project Delivery", title: "Site Engineer", body: "Mohamed supports the project-delivery team and joins with five years of site-execution experience.", linkUrl: null, imageUrl: "/manus-storage/arabtec-new-joiner-supporting_a59391ca.jpg", imageMode: "upload" as const, sortOrder: 0, active: 1 },
-  { parentSlot: "company_news" as const, eyebrow: "Delivery detail", title: "Critical package handover", body: "Read the milestone summary, its delivery context, and the work that follows.", linkUrl: "https://www.arabtec.com", imageUrl: null, imageMode: "none" as const, sortOrder: 0, active: 1 },
-  { parentSlot: "announcement" as const, eyebrow: "Action required", title: "Site induction reminder", body: "Complete the updated safety reminder before the Wednesday briefing.", linkUrl: null, imageUrl: null, imageMode: "none" as const, sortOrder: 0, active: 1 },
-  { parentSlot: "activity" as const, eyebrow: "Employee activity", title: "Building together", body: "See the upcoming activity details and register your interest.", linkUrl: null, imageUrl: "/manus-storage/arabtec-onboarding-community_f74340e9.jpg", imageMode: "upload" as const, sortOrder: 0, active: 1 },
-  { parentSlot: "industry_watch" as const, eyebrow: "Industry insight", title: "Relevant market context", body: "Open the selected analysis for project and commercial teams.", linkUrl: "https://www.arabtec.com", imageUrl: null, imageMode: "none" as const, sortOrder: 0, active: 1 },
-];
-
-async function ensureWorkspaceCards() {
+export async function listWorkspaceCards() {
   const db = await getDb();
   if (!db) return [];
-  const existing = await db.select().from(workspaceCards).limit(1);
-  if (existing.length > 0) return db.select().from(workspaceCards).orderBy(asc(workspaceCards.sortOrder));
-  await db.insert(workspaceCards).values(starterWorkspaceCards);
-  return db.select().from(workspaceCards).orderBy(asc(workspaceCards.sortOrder));
-}
-
-export async function listWorkspaceCards() {
-  const cards = await ensureWorkspaceCards();
+  const cards = await db.select().from(workspaceCards).orderBy(asc(workspaceCards.sortOrder));
   return cards.filter(card => card.active === 1);
 }
 
@@ -124,16 +76,10 @@ export async function saveWorkspaceCard(input: WorkspaceCardInput, userId: numbe
   return (await db.select().from(workspaceCards).where(eq(workspaceCards.slot, input.slot)).limit(1))[0];
 }
 
-async function ensureWorkspaceHoverCards() {
+export async function listWorkspaceHoverCards() {
   const db = await getDb();
   if (!db) return [];
-  const existing = await db.select().from(workspaceHoverCards).limit(1);
-  if (existing.length === 0) await db.insert(workspaceHoverCards).values(starterWorkspaceHoverCards);
-  return db.select().from(workspaceHoverCards).orderBy(asc(workspaceHoverCards.parentSlot), asc(workspaceHoverCards.sortOrder));
-}
-
-export async function listWorkspaceHoverCards() {
-  const cards = await ensureWorkspaceHoverCards();
+  const cards = await db.select().from(workspaceHoverCards).orderBy(asc(workspaceHoverCards.parentSlot), asc(workspaceHoverCards.sortOrder));
   return cards.filter(card => card.active === 1);
 }
 
@@ -175,21 +121,7 @@ async function ensureDailyDigest() {
   if (!db) return undefined;
 
   const existing = await db.select().from(dailyDigests).orderBy(desc(dailyDigests.updatedAt)).limit(1);
-  if (existing[0]) return existing[0];
-
-  await db.insert(dailyDigests).values({
-    digestDate: currentDigestDate(),
-    title: "Thursday welcome digest",
-    introduction: "Four incoming joiners, clear preparation actions, and a concise company update for the week ahead.",
-    status: "draft",
-    scheduledFor: new Date(new Date().setUTCHours(6, 0, 0, 0)),
-    recipientCount: 382,
-  });
-
-  const digest = (await db.select().from(dailyDigests).orderBy(desc(dailyDigests.createdAt)).limit(1))[0];
-  if (!digest) return undefined;
-  await db.insert(dailyDigestEntries).values(starterEntries.map(entry => ({ ...entry, digestId: digest.id })));
-  return digest;
+  return existing[0];
 }
 
 export async function getCurrentDailyDigest() {
