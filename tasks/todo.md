@@ -30,13 +30,17 @@
 - [x] Add regression checks for directional CSS, keyboard/touch disclosure, functional links, image descriptions, and locale behavior.
 - [x] Add explicit visible focus styling for native detail disclosures and verify keyboard activation across Phase 4 controls.
 - [x] Validate Phase 4 behavior at desktop, touch-mobile, keyboard focus, and Arabic RTL layouts.
-- [ ] Route the administrator console at /admin while preserving every existing administrator server guard.
-- [ ] Rebuild content management as a list-first workflow with item status, publish/review data, owner, and inline lifecycle actions.
-- [ ] Add a plain-language publish confirmation showing section, go-live timing, expiry, and owner before publication.
-- [ ] Preserve the currently live item when editing it by saving changes as a private revision that still requires publication confirmation.
-- [ ] Provide employee dashboard previews of drafts in English and Arabic.
-- [ ] Implement archive/restore and item-level change history instead of destructive deletion.
-- [ ] Reuse the digest lifecycle model for scheduled publishing, expiry, ownership, and stale-review state.
-- [ ] Flag past-due reviews and notify the content owner by email.
-- [ ] Provide an administrator-controlled reminder email configuration field that remains safely inactive until a sender credential is supplied.
-- [ ] Validate that a non-technical administrator can publish, schedule, preview, unpublish, archive, and restore without assistance.
+- [x] Route the administrator console at /admin while preserving every existing administrator server guard.
+- [x] Rebuild content management as a list-first workflow with item status, publish/review data, owner, and inline lifecycle actions.
+- [x] Add a plain-language publish confirmation showing section, go-live timing, expiry, and owner before publication.
+- [x] Preserve the currently live item when editing it by saving changes as a private revision that still requires publication confirmation.
+- [x] Provide employee dashboard previews of drafts in English and Arabic.
+- [x] Implement archive/restore and item-level change history instead of destructive deletion.
+- [x] Reuse the digest lifecycle model for scheduled publishing, expiry, ownership, and stale-review state.
+- [ ] Flag past-due reviews and notify the content owner by email once sender credentials are provided.
+- [x] Provide an administrator-controlled reminder email configuration field that remains safely inactive until a sender credential is supplied.
+- [x] Perform a browser-level signed-in administrator validation of create, schedule/publish confirmation, English/Arabic preview, unpublish, archive, and restore.
+- [x] Remove temporary signed-in console validation records and their history after the end-to-end test.
+- [x] Validate that a non-technical administrator can publish, schedule, preview, unpublish, archive, and restore without assistance.
+- [ ] Push the finalized Workspace console changes to the connected GitHub repository and verify the remote branch is current.
+- [ ] Confirm the finalized Workspace console deployment is live at the published application domain.
