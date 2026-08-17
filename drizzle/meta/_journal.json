@@ -15,6 +15,13 @@
       "when": 1786984773721,
       "tag": "0001_skinny_famine",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1786987045412,
+      "tag": "0002_blue_swarm",
+      "breakpoints": true
     }
   ]
 }

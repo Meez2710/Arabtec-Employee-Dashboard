@@ -25,3 +25,8 @@
 - [x] Validate the reference-led dashboard layout and content-card interactions on desktop and mobile.
 - [x] Reduce the new-joiner card to the standard dashboard-card footprint and place it in the right-side support area.
 - [x] Validate the revised dashboard emphasis on desktop and mobile.
+- [x] Restore the newcomer image without a narrow crop and reduce all primary dashboard cards to equal square proportions.
+- [x] Replace the top-row onboarding-progress card with the announcements module.
+- [x] Add professional hover states for employee, company-news, industry, activity, and announcement cards.
+- [x] Extend the Admin content manager with scalable “add hover card” controls for image/text or link-based cards.
+- [x] Validate the square-card layout, hover interactions, and Admin hover-card controls on desktop and mobile.

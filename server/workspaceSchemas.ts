@@ -15,6 +15,22 @@ export const workspaceCardSchema = z.object({
   active: z.boolean().default(true),
 });
 
+/** A repeatable hover disclosure attached to a dashboard section. For new joiners, use eyebrow for department and title for job title. */
+export const workspaceHoverCardSchema = z.object({
+  id: z.number().int().positive().optional(),
+  parentSlot: z.enum(workspaceCardSlots),
+  eyebrow: z.string().trim().min(1).max(80),
+  title: z.string().trim().min(1).max(180),
+  body: z.string().trim().max(800),
+  linkUrl: z.string().url().max(2048).nullable().optional(),
+  imageUrl: z.string().url().max(2048).nullable().optional(),
+  imageMode: z.enum(workspaceImageModes).default("none"),
+  sortOrder: z.number().int().min(0).max(99).default(0),
+  active: z.boolean().default(true),
+});
+
+export const workspaceHoverCardIdSchema = z.object({ id: z.number().int().positive() });
+
 export const workspaceImageUploadSchema = z.object({
   filename: z.string().trim().min(1).max(120),
   mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]),
@@ -22,3 +38,4 @@ export const workspaceImageUploadSchema = z.object({
 });
 
 export type WorkspaceCardInput = z.infer<typeof workspaceCardSchema>;
+export type WorkspaceHoverCardInput = z.infer<typeof workspaceHoverCardSchema>;

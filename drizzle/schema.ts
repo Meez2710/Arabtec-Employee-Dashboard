@@ -65,6 +65,24 @@ export const workspaceCards = mysqlTable("workspaceCards", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
+/** Repeatable disclosures displayed on card hover/focus. Each belongs to one dashboard content section. */
+export const workspaceHoverCards = mysqlTable("workspaceHoverCards", {
+  id: int("id").autoincrement().primaryKey(),
+  parentSlot: mysqlEnum("parentSlot", workspaceCardSlots).notNull(),
+  eyebrow: varchar("eyebrow", { length: 80 }).notNull(),
+  title: varchar("title", { length: 180 }).notNull(),
+  body: text("body").notNull(),
+  linkUrl: varchar("linkUrl", { length: 2048 }),
+  imageUrl: varchar("imageUrl", { length: 2048 }),
+  imageMode: mysqlEnum("imageMode", workspaceImageModes).default("none").notNull(),
+  sortOrder: int("sortOrder").default(0).notNull(),
+  active: int("active").default(1).notNull(),
+  updatedByUserId: int("updatedByUserId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 export type WorkspaceCard = typeof workspaceCards.$inferSelect;
+export type WorkspaceHoverCard = typeof workspaceHoverCards.$inferSelect;

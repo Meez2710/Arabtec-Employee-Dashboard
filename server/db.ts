@@ -1,8 +1,8 @@
 import { asc, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { dailyDigestEntries, dailyDigests, type InsertUser, users, workspaceCards } from "../drizzle/schema";
+import { dailyDigestEntries, dailyDigests, type InsertUser, users, workspaceCards, workspaceHoverCards } from "../drizzle/schema";
 import type { DailyDigestDraftInput } from "./digestSchemas";
-import type { WorkspaceCardInput } from "./workspaceSchemas";
+import type { WorkspaceCardInput, WorkspaceHoverCardInput } from "./workspaceSchemas";
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -92,6 +92,14 @@ const starterWorkspaceCards = [
   { slot: "opportunity" as const, eyebrow: "Internal opportunity", title: "Planning Engineer", body: "Cairo · Projects · Internal move. Applications close 21 August.", linkUrl: null, imageUrl: null, imageMode: "none" as const, sortOrder: 5, active: 1 },
 ];
 
+const starterWorkspaceHoverCards = [
+  { parentSlot: "new_joiner" as const, eyebrow: "Project Delivery", title: "Site Engineer", body: "Mohamed supports the project-delivery team and joins with five years of site-execution experience.", linkUrl: null, imageUrl: "/manus-storage/arabtec-new-joiner-supporting_a59391ca.jpg", imageMode: "upload" as const, sortOrder: 0, active: 1 },
+  { parentSlot: "company_news" as const, eyebrow: "Delivery detail", title: "Critical package handover", body: "Read the milestone summary, its delivery context, and the work that follows.", linkUrl: "https://www.arabtec.com", imageUrl: null, imageMode: "none" as const, sortOrder: 0, active: 1 },
+  { parentSlot: "announcement" as const, eyebrow: "Action required", title: "Site induction reminder", body: "Complete the updated safety reminder before the Wednesday briefing.", linkUrl: null, imageUrl: null, imageMode: "none" as const, sortOrder: 0, active: 1 },
+  { parentSlot: "activity" as const, eyebrow: "Employee activity", title: "Building together", body: "See the upcoming activity details and register your interest.", linkUrl: null, imageUrl: "/manus-storage/arabtec-onboarding-community_f74340e9.jpg", imageMode: "upload" as const, sortOrder: 0, active: 1 },
+  { parentSlot: "industry_watch" as const, eyebrow: "Industry insight", title: "Relevant market context", body: "Open the selected analysis for project and commercial teams.", linkUrl: "https://www.arabtec.com", imageUrl: null, imageMode: "none" as const, sortOrder: 0, active: 1 },
+];
+
 async function ensureWorkspaceCards() {
   const db = await getDb();
   if (!db) return [];
@@ -114,6 +122,39 @@ export async function saveWorkspaceCard(input: WorkspaceCardInput, userId: numbe
   if (existing[0]) await db.update(workspaceCards).set(values).where(eq(workspaceCards.slot, input.slot));
   else await db.insert(workspaceCards).values(values);
   return (await db.select().from(workspaceCards).where(eq(workspaceCards.slot, input.slot)).limit(1))[0];
+}
+
+async function ensureWorkspaceHoverCards() {
+  const db = await getDb();
+  if (!db) return [];
+  const existing = await db.select().from(workspaceHoverCards).limit(1);
+  if (existing.length === 0) await db.insert(workspaceHoverCards).values(starterWorkspaceHoverCards);
+  return db.select().from(workspaceHoverCards).orderBy(asc(workspaceHoverCards.parentSlot), asc(workspaceHoverCards.sortOrder));
+}
+
+export async function listWorkspaceHoverCards() {
+  const cards = await ensureWorkspaceHoverCards();
+  return cards.filter(card => card.active === 1);
+}
+
+export async function saveWorkspaceHoverCard(input: WorkspaceHoverCardInput, userId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const { id, ...card } = input;
+  const values = { ...card, linkUrl: card.linkUrl ?? null, imageUrl: card.imageUrl ?? null, active: card.active ? 1 : 0, updatedByUserId: userId };
+  if (id) {
+    await db.update(workspaceHoverCards).set(values).where(eq(workspaceHoverCards.id, id));
+    return (await db.select().from(workspaceHoverCards).where(eq(workspaceHoverCards.id, id)).limit(1))[0];
+  }
+  const result = await db.insert(workspaceHoverCards).values(values);
+  return (await db.select().from(workspaceHoverCards).where(eq(workspaceHoverCards.id, Number(result[0].insertId))).limit(1))[0];
+}
+
+export async function deleteWorkspaceHoverCard(id: number) {
+  const db = await getDb();
+  if (!db) return false;
+  await db.delete(workspaceHoverCards).where(eq(workspaceHoverCards.id, id));
+  return true;
 }
 
 function currentDigestDate() {

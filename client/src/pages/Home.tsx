@@ -28,6 +28,7 @@ import { trpc } from "@/lib/trpc";
 
 type DashboardSlot = "new_joiner" | "company_news" | "announcement" | "activity" | "industry_watch" | "opportunity";
 type DashboardCard = { eyebrow: string; title: string; body: string; linkUrl: string | null; imageUrl: string | null; active?: number };
+type DashboardHoverCard = { eyebrow: string; title: string; body: string; linkUrl: string | null; imageUrl: string | null };
 
 const fallbackCards: Record<DashboardSlot, DashboardCard> = {
   new_joiner: { eyebrow: "New to Arabtec", title: "Mohamed Tarek", body: "Site Engineer · Project Delivery. Mohamed brings five years of construction and site-execution experience. Give him a warm Arabtec welcome.", linkUrl: null, imageUrl: "/manus-storage/arabtec-new-joiner-supporting_a59391ca.jpg" },
@@ -42,12 +43,21 @@ const roadmap = ["Welcome / Onboarding", "Company News", "Announcements", "Event
 
 export default function Home() {
   const { data: storedCards } = trpc.workspace.listCards.useQuery(undefined, { retry: false });
+  const { data: storedHoverCards } = trpc.workspace.listHoverCards.useQuery(undefined, { retry: false });
   const [newsIndex, setNewsIndex] = useState(0);
   const cards = useMemo(() => {
     const next = { ...fallbackCards };
     storedCards?.forEach(card => { next[card.slot as DashboardSlot] = { eyebrow: card.eyebrow, title: card.title, body: card.body, linkUrl: card.linkUrl, imageUrl: card.imageUrl, active: card.active }; });
     return next;
   }, [storedCards]);
+  const hoverBySlot = useMemo(() => {
+    const next: Partial<Record<DashboardSlot, DashboardHoverCard[]>> = {};
+    storedHoverCards?.forEach(card => {
+      const slot = card.parentSlot as DashboardSlot;
+      next[slot] = [...(next[slot] ?? []), { eyebrow: card.eyebrow, title: card.title, body: card.body, linkUrl: card.linkUrl, imageUrl: card.imageUrl }];
+    });
+    return next;
+  }, [storedHoverCards]);
   const newsCards = [cards.company_news, { ...cards.industry_watch, eyebrow: "Industry watch", title: "Procurement and supplier updates" }, { ...cards.activity, eyebrow: "People & culture", title: "The August learning calendar is now open", body: "Register for project controls, site leadership, and HSE refresher sessions." }];
   const featuredNews = newsCards[newsIndex];
 
@@ -57,14 +67,14 @@ export default function Home() {
       <main className="dashboard-shell">
         <section className="dashboard-grid" aria-label="Arabtec employee workspace">
           <WelcomeCard />
-          <OnboardingProgress />
+          <Announcements card={cards.announcement} hoverCard={hoverBySlot.announcement?.[0]} />
           <ThisWeek />
-          <NewJoinerCard card={cards.new_joiner} />
+          <NewJoinerCard card={cards.new_joiner} hoverCard={hoverBySlot.new_joiner?.[0]} />
 
-          <div className="dashboard-column dashboard-column--left" id="company"><CompanyNews card={featuredNews} index={newsIndex} onPrevious={() => setNewsIndex(current => (current + newsCards.length - 1) % newsCards.length)} onNext={() => setNewsIndex(current => (current + 1) % newsCards.length)} /><InternalOpportunities card={cards.opportunity} /></div>
-          <div className="dashboard-column"><Announcements card={cards.announcement} /><Activities card={cards.activity} /></div>
+          <div className="dashboard-column dashboard-column--left" id="company"><CompanyNews card={featuredNews} hoverCard={hoverBySlot.company_news?.[0]} index={newsIndex} onPrevious={() => setNewsIndex(current => (current + newsCards.length - 1) % newsCards.length)} onNext={() => setNewsIndex(current => (current + 1) % newsCards.length)} /><InternalOpportunities card={cards.opportunity} /></div>
+          <div className="dashboard-column"><Activities card={cards.activity} hoverCard={hoverBySlot.activity?.[0]} /></div>
           <div className="dashboard-column"><QuickAccess /><Policies /></div>
-          <div className="dashboard-column"><IndustryWatch card={cards.industry_watch} /></div>
+          <div className="dashboard-column"><IndustryWatch card={cards.industry_watch} hoverCard={hoverBySlot.industry_watch?.[0]} /></div>
         </section>
         <MobilePreview card={cards.company_news} />
       </main>
@@ -78,8 +88,8 @@ function WelcomeCard() {
   return <section className="dash-welcome-card"><p className="dash-eyebrow">Welcome back</p><h1>Good morning,<br /><span>Ahmed.</span></h1><p className="dash-welcome-copy">Here’s what’s happening at Arabtec today.</p><div className="dash-stat-grid"><Stat icon={<ClipboardCheck />} value="2" label="Actions for you" /><Stat icon={<CalendarDays />} value="3" label="Events this week" /><Stat icon={<BellRing />} value="4" label="New updates" /><Stat icon={<UsersRound />} value="7" label="People to meet" /></div></section>;
 }
 
-function NewJoinerCard({ card }: { card: DashboardCard }) {
-  return <DashboardLink href={card.linkUrl} className="dash-new-joiner"><div className="dash-new-joiner-image">{card.imageUrl ? <img src={card.imageUrl} alt={`New Arabtec colleague ${card.title}`} /> : <div className="dash-empty-media"><UsersRound size={28} /></div>}</div><div className="dash-new-joiner-copy"><p className="dash-eyebrow">{card.eyebrow}</p><h2>{card.title}</h2><span className="dash-red-line" /><p>{card.body}</p><div className="dash-card-pager"><span><ChevronLeft size={15} /> 1 / 4 <ChevronRight size={15} /></span></div></div></DashboardLink>;
+function NewJoinerCard({ card, hoverCard }: { card: DashboardCard; hoverCard?: DashboardHoverCard }) {
+  return <DashboardLink href={card.linkUrl} className="dash-new-joiner dash-hoverable"><div className="dash-new-joiner-image">{card.imageUrl ? <img src={card.imageUrl} alt={`New Arabtec colleague ${card.title}`} /> : <div className="dash-empty-media"><UsersRound size={28} /></div>}</div><div className="dash-new-joiner-copy"><p className="dash-eyebrow">{card.eyebrow}</p><h2>{card.title}</h2><span className="dash-red-line" /><p>{card.body}</p><div className="dash-card-pager"><span><ChevronLeft size={15} /> 1 / 4 <ChevronRight size={15} /></span></div></div><HoverOverlay card={hoverCard} /></DashboardLink>;
 }
 
 function OnboardingProgress() {
@@ -87,13 +97,13 @@ function OnboardingProgress() {
   return <section className="dash-onboarding-card"><p className="dash-eyebrow">Your onboarding journey</p><div className="dash-progress-heading"><h2>Day 4 of 7</h2><strong>80%</strong></div><div className="dash-progress-track"><span /></div><ul>{steps.map((step, index) => <li key={step} className={index < 3 ? "complete" : index === 3 ? "current" : "pending"}><span>{index < 3 ? "✓" : ""}</span>{step}</li>)}</ul><button type="button" className="dash-red-button">Continue your journey <ArrowRight size={16} /></button></section>;
 }
 
-function CompanyNews({ card, index, onPrevious, onNext }: { card: DashboardCard; index: number; onPrevious: () => void; onNext: () => void }) {
-  return <section className="dash-card" aria-labelledby="company-news-title"><div className="dash-card-title-row"><h2 id="company-news-title">Company news</h2><span className="dash-pager"><button onClick={onPrevious} aria-label="Previous story"><ChevronLeft size={14} /></button>{index + 1} / 3<button onClick={onNext} aria-label="Next story"><ChevronRight size={14} /></button></span></div><DashboardLink href={card.linkUrl} className="dash-news-feature">{card.imageUrl && <img src={card.imageUrl} alt="" />}<div><p className="dash-eyebrow">{card.eyebrow}</p><h3>{card.title}</h3><p>{card.body}</p><span className="dash-link-label">Read more <ArrowRight size={15} /></span></div></DashboardLink></section>;
+function CompanyNews({ card, hoverCard, index, onPrevious, onNext }: { card: DashboardCard; hoverCard?: DashboardHoverCard; index: number; onPrevious: () => void; onNext: () => void }) {
+  return <section className="dash-card dash-hoverable" tabIndex={0} aria-labelledby="company-news-title"><div className="dash-card-title-row"><h2 id="company-news-title">Company news</h2><span className="dash-pager"><button onClick={onPrevious} aria-label="Previous story"><ChevronLeft size={14} /></button>{index + 1} / 3<button onClick={onNext} aria-label="Next story"><ChevronRight size={14} /></button></span></div><DashboardLink href={card.linkUrl} className="dash-news-feature">{card.imageUrl && <img src={card.imageUrl} alt="" />}<div><p className="dash-eyebrow">{card.eyebrow}</p><h3>{card.title}</h3><p>{card.body}</p><span className="dash-link-label">Read more <ArrowRight size={15} /></span></div></DashboardLink><HoverOverlay card={hoverCard} /></section>;
 }
 
-function Announcements({ card }: { card: DashboardCard }) {
+function Announcements({ card, hoverCard }: { card: DashboardCard; hoverCard?: DashboardHoverCard }) {
   const items = [card, { eyebrow: "HR", title: "Updated attendance policy", body: "Effective 1 September", linkUrl: null, imageUrl: null }, { eyebrow: "Operations", title: "New project coordination procedure", body: "Available to all site teams", linkUrl: null, imageUrl: null }];
-  return <section className="dash-card"><div className="dash-card-title-row"><h2>Announcements</h2></div><div className="dash-list">{items.map((item, index) => <DashboardLink key={`${item.title}-${index}`} href={item.linkUrl} className="dash-announcement-row"><span className={`dash-list-icon dash-list-icon--${index}`}><BellRing size={16} /></span><div><p className="dash-mini-label">{item.eyebrow}</p><h3>{item.title}</h3><p>{item.body}</p></div>{index < 2 ? <span className="dash-unread-dot" /> : <ChevronRight size={16} />}</DashboardLink>)}</div><a href="#resources" className="dash-bottom-link">View all announcements <ArrowRight size={15} /></a></section>;
+  return <section className="dash-card dash-hoverable" tabIndex={0}><div className="dash-card-title-row"><h2>Announcements</h2></div><div className="dash-list">{items.map((item, index) => <DashboardLink key={`${item.title}-${index}`} href={item.linkUrl} className="dash-announcement-row"><span className={`dash-list-icon dash-list-icon--${index}`}><BellRing size={16} /></span><div><p className="dash-mini-label">{item.eyebrow}</p><h3>{item.title}</h3><p>{item.body}</p></div>{index < 2 ? <span className="dash-unread-dot" /> : <ChevronRight size={16} />}</DashboardLink>)}</div><a href="#resources" className="dash-bottom-link">View all announcements <ArrowRight size={15} /></a><HoverOverlay card={hoverCard} /></section>;
 }
 
 function ThisWeek() {
@@ -101,9 +111,9 @@ function ThisWeek() {
   return <section className="dash-card"><div className="dash-card-title-row"><h2>This week</h2><a href="#calendar">View all <ArrowRight size={14} /></a></div><div className="dash-week-list">{items.map(item => <a href="#calendar" key={item[2]}><span><b>{item[0]}</b>{item[1]}</span><div><h3>{item[2]}</h3><p>{item[3]}</p></div></a>)}</div></section>;
 }
 
-function IndustryWatch({ card }: { card: DashboardCard }) {
+function IndustryWatch({ card, hoverCard }: { card: DashboardCard; hoverCard?: DashboardHoverCard }) {
   const items = [card, { eyebrow: "Procurement", title: "Latest trends & supplier updates", body: "3 min read", linkUrl: "https://www.arabtec.com", imageUrl: null }, { eyebrow: "Safety", title: "Best practices for site safety", body: "5 min read", linkUrl: "https://www.arabtec.com", imageUrl: null }];
-  return <section className="dash-card"><div className="dash-card-title-row"><h2>Industry watch</h2><a href="#industry">View all <ArrowRight size={14} /></a></div><div className="dash-industry-list">{items.map((item, index) => <DashboardLink key={item.title} href={item.linkUrl} className="dash-industry-row"><span><Globe2 size={16} /></span><div><p className="dash-mini-label">{index === 0 ? item.eyebrow : ""}</p><h3>{item.title}</h3><p>{item.body}</p></div></DashboardLink>)}</div></section>;
+  return <section className="dash-card dash-hoverable" tabIndex={0}><div className="dash-card-title-row"><h2>Industry watch</h2><a href="#industry">View all <ArrowRight size={14} /></a></div><div className="dash-industry-list">{items.map((item, index) => <DashboardLink key={item.title} href={item.linkUrl} className="dash-industry-row"><span><Globe2 size={16} /></span><div><p className="dash-mini-label">{index === 0 ? item.eyebrow : ""}</p><h3>{item.title}</h3><p>{item.body}</p></div></DashboardLink>)}</div><HoverOverlay card={hoverCard} /></section>;
 }
 
 function InternalOpportunities({ card }: { card: DashboardCard }) {
@@ -111,7 +121,7 @@ function InternalOpportunities({ card }: { card: DashboardCard }) {
   return <section id="careers" className="dash-card"><div className="dash-card-title-row"><h2>Internal opportunities</h2><span className="dash-open-count">04 Open Positions</span></div><div className="dash-jobs-list">{jobs.map(job => <DashboardLink key={job.title} href={job.linkUrl} className="dash-job-row"><BriefcaseBusiness size={17} /><div><h3>{job.title}</h3><p>{job.body}</p></div><ChevronRight size={16} /></DashboardLink>)}</div><a href="#careers" className="dash-bottom-link">View all opportunities <ArrowRight size={15} /></a></section>;
 }
 
-function Activities({ card }: { card: DashboardCard }) { return <section className="dash-card"><div className="dash-card-title-row"><h2>Activities</h2><a href="#calendar">View all <ArrowRight size={14} /></a></div><DashboardLink href={card.linkUrl} className="dash-activity-card">{card.imageUrl ? <img src={card.imageUrl} alt="" /> : <div className="dash-empty-media"><HeartHandshake size={28} /></div>}<div><p className="dash-eyebrow">{card.eyebrow}</p><h3>{card.title}</h3><p>{card.body}</p></div></DashboardLink><div className="dash-dots"><span className="active" /><span /><span /><span /></div></section>; }
+function Activities({ card, hoverCard }: { card: DashboardCard; hoverCard?: DashboardHoverCard }) { return <section className="dash-card dash-hoverable" tabIndex={0}><div className="dash-card-title-row"><h2>Activities</h2><a href="#calendar">View all <ArrowRight size={14} /></a></div><DashboardLink href={card.linkUrl} className="dash-activity-card">{card.imageUrl ? <img src={card.imageUrl} alt="" /> : <div className="dash-empty-media"><HeartHandshake size={28} /></div>}<div><p className="dash-eyebrow">{card.eyebrow}</p><h3>{card.title}</h3><p>{card.body}</p></div></DashboardLink><div className="dash-dots"><span className="active" /><span /><span /><span /></div><HoverOverlay card={hoverCard} /></section>; }
 
 function QuickAccess() { const items: Array<[ReactNode, string, string]> = [[<UsersRound />, "HR Services", "#resources"], [<FileText />, "Policies", "#resources"], [<BookOpen />, "Learning", "#resources"], [<Laptop />, "IT Help", "#resources"], [<UsersRound />, "People Directory", "#company"], [<ClipboardCheck />, "Forms", "#resources"], [<ShieldCheck />, "Company Systems", "https://www.arabtec.com"], [<PhoneCall />, "ATS", "#careers"]]; return <section className="dash-card"><div className="dash-card-title-row"><h2>Quick access</h2></div><div className="dash-quick-grid">{items.map(([icon, label, href]) => <a href={href} key={label}>{icon}<span>{label}</span></a>)}<button type="button"><MoreHorizontal /><span>More</span></button></div></section>; }
 
@@ -121,4 +131,5 @@ function MobilePreview({ card }: { card: DashboardCard }) { return <aside classN
 
 function Roadmap() { return <section className="dash-roadmap"><div><p className="dash-eyebrow">Our modular roadmap</p><div className="dash-roadmap-row">{roadmap.map((item, index) => <div key={item}><span>{index + 1}</span><p>{item}</p>{index < roadmap.length - 1 && <ArrowRight size={16} />}</div>)}</div></div></section>; }
 function Stat({ icon, value, label }: { icon: ReactNode; value: string; label: string }) { return <a href="#resources" className="dash-stat"><span>{icon}</span><b>{value}</b><p>{label}</p><em>View all <ArrowRight size={12} /></em></a>; }
-function DashboardLink({ href, className, children }: { href: string | null; className: string; children: ReactNode }) { return href ? <a className={className} href={href} target={href.startsWith("http") ? "_blank" : undefined} rel={href.startsWith("http") ? "noreferrer" : undefined}>{children}</a> : <div className={className}>{children}</div>; }
+function DashboardLink({ href, className, children }: { href: string | null; className: string; children: ReactNode }) { return href ? <a className={className} href={href} target={href.startsWith("http") ? "_blank" : undefined} rel={href.startsWith("http") ? "noreferrer" : undefined}>{children}</a> : <div className={className} tabIndex={className.includes("dash-hoverable") ? 0 : undefined}>{children}</div>; }
+function HoverOverlay({ card }: { card?: DashboardHoverCard }) { if (!card) return null; const content = <><div className="dash-hover-overlay-media">{card.imageUrl && <img src={card.imageUrl} alt="" />}</div><div className="dash-hover-overlay-copy"><p className="dash-eyebrow">{card.eyebrow}</p><h3>{card.title}</h3><p>{card.body}</p><span>Open details <ArrowRight size={15} /></span></div></>; return card.linkUrl ? <a className="dash-hover-overlay" href={card.linkUrl} target="_blank" rel="noreferrer">{content}</a> : <div className="dash-hover-overlay">{content}</div>; }

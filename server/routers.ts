@@ -3,10 +3,13 @@ import { dailyDigestDraftSchema, dailyDigestIdSchema } from "./digestSchemas";
 import {
   getDailyDigestById,
   getCurrentDailyDigest,
+  deleteWorkspaceHoverCard,
   listWorkspaceCards,
+  listWorkspaceHoverCards,
   publishDailyDigest,
   saveDailyDigestDraft,
   saveWorkspaceCard,
+  saveWorkspaceHoverCard,
   submitDailyDigestForReview,
 } from "./db";
 import { canPerformDigestAction, digestTransitionMessage, type DigestAction, type DigestLifecycleStatus } from "./digestLifecycle";
@@ -16,7 +19,7 @@ import { adminProcedure, editorProcedure, publicProcedure, router } from "./_cor
 import { TRPCError } from "@trpc/server";
 import { storagePut } from "./storage";
 import { resolveLinkPreview } from "./workspaceLinks";
-import { workspaceCardSchema, workspaceImageUploadSchema } from "./workspaceSchemas";
+import { workspaceCardSchema, workspaceHoverCardIdSchema, workspaceHoverCardSchema, workspaceImageUploadSchema } from "./workspaceSchemas";
 
 function requireDigest<T>(digest: T | undefined): T {
   if (!digest) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Daily digest data is unavailable" });
@@ -60,6 +63,7 @@ export const appRouter = router({
   }),
   workspace: router({
     listCards: publicProcedure.query(() => listWorkspaceCards()),
+    listHoverCards: publicProcedure.query(() => listWorkspaceHoverCards()),
     saveCard: adminProcedure.input(workspaceCardSchema).mutation(async ({ ctx, input }) => {
       let imageUrl = input.imageUrl ?? null;
       if (input.imageMode === "link_preview" && input.linkUrl && !imageUrl) {
@@ -68,6 +72,15 @@ export const appRouter = router({
       }
       return saveWorkspaceCard({ ...input, imageUrl }, ctx.user.id);
     }),
+    saveHoverCard: adminProcedure.input(workspaceHoverCardSchema).mutation(async ({ ctx, input }) => {
+      let imageUrl = input.imageUrl ?? null;
+      if (input.imageMode === "link_preview" && input.linkUrl && !imageUrl) {
+        const preview = await resolveLinkPreview(input.linkUrl).catch(() => ({ imageUrl: null, title: null }));
+        imageUrl = preview.imageUrl;
+      }
+      return saveWorkspaceHoverCard({ ...input, imageUrl }, ctx.user.id);
+    }),
+    deleteHoverCard: adminProcedure.input(workspaceHoverCardIdSchema).mutation(({ input }) => deleteWorkspaceHoverCard(input.id)),
     uploadImage: adminProcedure.input(workspaceImageUploadSchema).mutation(async ({ ctx, input }) => {
       const raw = input.base64.replace(/^data:[^;]+;base64,/, "");
       const bytes = Buffer.from(raw, "base64");

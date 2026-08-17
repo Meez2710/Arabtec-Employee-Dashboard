@@ -19,3 +19,7 @@ Both option routes compile and render at desktop and mobile widths. **Option A**
 ## New-Joiner Card Rebalance
 
 Desktop validation confirms the new-joiner card now occupies the far-right supporting slot at the same one-column footprint as the welcome, onboarding, and weekly-activity cards. Its photo and copy are scaled down, keeping the broad dashboard focused on the whole employee experience. Mobile validation confirms the compact card follows the welcome and weekly activity surfaces without dominating the vertical reading sequence.
+
+## Square Cards and Managed Hover Cards
+
+The top dashboard row is now composed of equal square modules: welcome, announcements, weekly activities, and the supporting new-joiner card. The newcomer portrait uses contain sizing, preserving the full image rather than using a narrow face crop. Company news, announcements, industry watch, activities, and employee cards now carry accessible hover/focus overlays backed by repeatable hover-card data. The Admin page displays existing hover-card tiles and an **Add hover card** action that opens an empty square editor supporting text, HTTPS link previews, and image uploads.
