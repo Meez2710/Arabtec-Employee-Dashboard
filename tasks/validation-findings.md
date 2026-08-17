@@ -41,3 +41,13 @@ Direct route screenshots confirm that `/manage` renders the application’s 404 
 ## Derived Greeting and Metrics
 
 The welcome surface now renders an impersonal greeting based on local time and today’s formatted date. It does not render an employee name. Announcement and opportunity metrics are calculated from published card records only; with no published records, no metric tiles are displayed. The hardcoded onboarding-progress implementation, fixed stat values, and literal open-position label are absent from the active source. All unit tests, TypeScript validation, and the production build pass.
+
+## Corporate Typography and Layout Correction
+
+At 1440px and 1024px, the Workspace now uses the revised Swiss-editorial hierarchy: 12px uppercase micro-labels, 13px metadata, 15px operational body text, 17px card titles, 22px management section headings, and a 32px-or-larger page headline. The grid aligns content-driven cards on shared row baselines without forced square ratios or internal card scrolling. Cards have square 1px hairlines, a 3px carbon rule above each module heading, and no box shadows. The welcome surface alone uses the red inline-start page-intro rail. The visible browser screenshots also revealed previously saved example content in the current local datastore; no new example content was created during this correction.
+
+After removal of the identified legacy records, final 1440px and 1024px checks confirm that every managed workspace slot resolves to the neutral “No update published yet” state. The welcome remains impersonal, shows only the current greeting and date, and does not show derived metrics without published records.
+
+Final 1440px and 1024px visual checks after the typography audit confirm that only 12px uppercase, tracked micro-labels remain at the smallest size; all other interface text is 13px or larger. Negative tracking is limited to display headlines whose minimum size is 32px. The responsive four-column desktop and two-column tablet grids render without clipped, scrollable, rounded, or shadowed cards.
+
+The final 375px field-ready check confirms a deliberate single-column briefing sequence. Module content remains readable, cards have no internal scrolling or forced height, and the mobile header collapses without hiding the primary employee information.
