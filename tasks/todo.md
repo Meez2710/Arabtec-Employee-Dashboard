@@ -18,3 +18,8 @@
 - [x] Build Option A with two automated right-side content feeds and a fixed calendar, index, and activity column.
 - [x] Build Option B as a usability-led alternative and make both layouts easy to compare.
 - [x] Validate both layout options on desktop and mobile before presentation.
+- [x] Replace the option-comparison homepage with the supplied reference-led employee dashboard structure.
+- [x] Place new-joiner media in a secondary middle/right card instead of the primary welcome focus.
+- [x] Add configurable content-card fields for title, text, external link, uploaded image, and image-from-link preview.
+- [x] Make dashboard cards and quick-access destinations clickable with safe external-link behavior.
+- [x] Validate the reference-led dashboard layout and content-card interactions on desktop and mobile.

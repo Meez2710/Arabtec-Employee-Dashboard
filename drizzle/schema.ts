@@ -3,6 +3,8 @@ import { int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-or
 export const userRoles = ["user", "editor", "admin"] as const;
 export const digestStatuses = ["draft", "in_review", "approved", "published"] as const;
 export const digestAudiences = ["employees", "owners", "joiners"] as const;
+export const workspaceCardSlots = ["new_joiner", "company_news", "announcement", "activity", "industry_watch", "opportunity"] as const;
+export const workspaceImageModes = ["none", "upload", "link_preview"] as const;
 
 /** Core user table backing the Manus OAuth flow. */
 export const users = mysqlTable("users", {
@@ -46,5 +48,23 @@ export const dailyDigestEntries = mysqlTable("dailyDigestEntries", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
+/** Reusable public dashboard cards managed by an Admin. File bytes stay in S3; this table stores metadata and destinations only. */
+export const workspaceCards = mysqlTable("workspaceCards", {
+  id: int("id").autoincrement().primaryKey(),
+  slot: mysqlEnum("slot", workspaceCardSlots).notNull().unique(),
+  eyebrow: varchar("eyebrow", { length: 80 }).notNull(),
+  title: varchar("title", { length: 180 }).notNull(),
+  body: text("body").notNull(),
+  linkUrl: varchar("linkUrl", { length: 2048 }),
+  imageUrl: varchar("imageUrl", { length: 2048 }),
+  imageMode: mysqlEnum("imageMode", workspaceImageModes).default("none").notNull(),
+  sortOrder: int("sortOrder").default(0).notNull(),
+  active: int("active").default(1).notNull(),
+  updatedByUserId: int("updatedByUserId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
+export type WorkspaceCard = typeof workspaceCards.$inferSelect;

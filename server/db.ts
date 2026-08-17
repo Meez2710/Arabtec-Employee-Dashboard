@@ -1,7 +1,8 @@
 import { asc, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { dailyDigestEntries, dailyDigests, type InsertUser, users } from "../drizzle/schema";
+import { dailyDigestEntries, dailyDigests, type InsertUser, users, workspaceCards } from "../drizzle/schema";
 import type { DailyDigestDraftInput } from "./digestSchemas";
+import type { WorkspaceCardInput } from "./workspaceSchemas";
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -81,6 +82,39 @@ const starterEntries = [
     sortOrder: 2,
   },
 ];
+
+const starterWorkspaceCards = [
+  { slot: "new_joiner" as const, eyebrow: "New to Arabtec", title: "Mohamed Tarek", body: "Site Engineer · Project Delivery. Mohamed brings five years of construction and site-execution experience. Give him a warm Arabtec welcome.", linkUrl: null, imageUrl: "/manus-storage/arabtec-new-joiner-supporting_a59391ca.jpg", imageMode: "upload" as const, sortOrder: 0, active: 1 },
+  { slot: "company_news" as const, eyebrow: "Project update", title: "Marina Tower reaches its next delivery milestone", body: "The delivery team has completed its next critical package and is preparing the handover sequence.", linkUrl: "https://www.arabtec.com", imageUrl: "/manus-storage/arabtec-onboarding-roadmap_05a4b024.jpg", imageMode: "upload" as const, sortOrder: 1, active: 1 },
+  { slot: "announcement" as const, eyebrow: "Safety", title: "Updated site induction reminder", body: "Complete the updated induction reminder before Wednesday’s safety briefing.", linkUrl: null, imageUrl: null, imageMode: "none" as const, sortOrder: 2, active: 1 },
+  { slot: "activity" as const, eyebrow: "Activities", title: "Employee Sports Day", body: "Building connections beyond the workplace.", linkUrl: null, imageUrl: "/manus-storage/arabtec-onboarding-community_f74340e9.jpg", imageMode: "upload" as const, sortOrder: 3, active: 1 },
+  { slot: "industry_watch" as const, eyebrow: "Market intelligence", title: "Construction market outlook", body: "Relevant industry signals for project, commercial, and site teams.", linkUrl: "https://www.arabtec.com", imageUrl: null, imageMode: "none" as const, sortOrder: 4, active: 1 },
+  { slot: "opportunity" as const, eyebrow: "Internal opportunity", title: "Planning Engineer", body: "Cairo · Projects · Internal move. Applications close 21 August.", linkUrl: null, imageUrl: null, imageMode: "none" as const, sortOrder: 5, active: 1 },
+];
+
+async function ensureWorkspaceCards() {
+  const db = await getDb();
+  if (!db) return [];
+  const existing = await db.select().from(workspaceCards).limit(1);
+  if (existing.length > 0) return db.select().from(workspaceCards).orderBy(asc(workspaceCards.sortOrder));
+  await db.insert(workspaceCards).values(starterWorkspaceCards);
+  return db.select().from(workspaceCards).orderBy(asc(workspaceCards.sortOrder));
+}
+
+export async function listWorkspaceCards() {
+  const cards = await ensureWorkspaceCards();
+  return cards.filter(card => card.active === 1);
+}
+
+export async function saveWorkspaceCard(input: WorkspaceCardInput, userId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const values = { ...input, linkUrl: input.linkUrl ?? null, imageUrl: input.imageUrl ?? null, active: input.active ? 1 : 0, updatedByUserId: userId };
+  const existing = await db.select().from(workspaceCards).where(eq(workspaceCards.slot, input.slot)).limit(1);
+  if (existing[0]) await db.update(workspaceCards).set(values).where(eq(workspaceCards.slot, input.slot));
+  else await db.insert(workspaceCards).values(values);
+  return (await db.select().from(workspaceCards).where(eq(workspaceCards.slot, input.slot)).limit(1))[0];
+}
 
 function currentDigestDate() {
   return new Date().toISOString().slice(0, 10);

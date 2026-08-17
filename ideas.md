@@ -69,3 +69,9 @@ Use a compact red angular construction mark paired with the `arabtec` wordmark t
 ## Signature Brand Color
 
 **Arabtec Signal Red — #E11D2E**.
+
+## Final Employee Dashboard Reference
+
+The supplied dashboard reference now defines the production information architecture: compact top navigation; personal welcome with small operational counters; a secondary middle/right new-joiner card; onboarding progress; company news; announcements; weekly activities; industry watch; internal opportunities; quick access; resources; and a concise roadmap. The new-joiner image must support, not dominate, the welcome content and can be replaced through the administrator-managed card media field.
+
+Every editorial destination is a reusable content card with a title, description, optional external link, and optional uploaded image or link-derived preview image. Public employees only browse and follow these cards. Content administration is isolated from the public dashboard and remains server-side role-gated.

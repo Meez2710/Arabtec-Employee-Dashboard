@@ -3,8 +3,10 @@ import { dailyDigestDraftSchema, dailyDigestIdSchema } from "./digestSchemas";
 import {
   getDailyDigestById,
   getCurrentDailyDigest,
+  listWorkspaceCards,
   publishDailyDigest,
   saveDailyDigestDraft,
+  saveWorkspaceCard,
   submitDailyDigestForReview,
 } from "./db";
 import { canPerformDigestAction, digestTransitionMessage, type DigestAction, type DigestLifecycleStatus } from "./digestLifecycle";
@@ -12,6 +14,9 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, editorProcedure, publicProcedure, router } from "./_core/trpc";
 import { TRPCError } from "@trpc/server";
+import { storagePut } from "./storage";
+import { resolveLinkPreview } from "./workspaceLinks";
+import { workspaceCardSchema, workspaceImageUploadSchema } from "./workspaceSchemas";
 
 function requireDigest<T>(digest: T | undefined): T {
   if (!digest) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Daily digest data is unavailable" });
@@ -51,6 +56,24 @@ export const appRouter = router({
     publish: adminProcedure.input(dailyDigestIdSchema).mutation(async ({ ctx, input }) => {
       await requirePermittedDigestAction(input.id, "publish");
       return requireDigest(await publishDailyDigest(input.id, ctx.user.id));
+    }),
+  }),
+  workspace: router({
+    listCards: publicProcedure.query(() => listWorkspaceCards()),
+    saveCard: adminProcedure.input(workspaceCardSchema).mutation(async ({ ctx, input }) => {
+      let imageUrl = input.imageUrl ?? null;
+      if (input.imageMode === "link_preview" && input.linkUrl && !imageUrl) {
+        const preview = await resolveLinkPreview(input.linkUrl).catch(() => ({ imageUrl: null, title: null }));
+        imageUrl = preview.imageUrl;
+      }
+      return saveWorkspaceCard({ ...input, imageUrl }, ctx.user.id);
+    }),
+    uploadImage: adminProcedure.input(workspaceImageUploadSchema).mutation(async ({ ctx, input }) => {
+      const raw = input.base64.replace(/^data:[^;]+;base64,/, "");
+      const bytes = Buffer.from(raw, "base64");
+      if (bytes.length > 5_000_000) throw new TRPCError({ code: "PAYLOAD_TOO_LARGE", message: "Images must be 5 MB or smaller" });
+      const extension = input.mimeType === "image/jpeg" ? "jpg" : input.mimeType === "image/png" ? "png" : "webp";
+      return storagePut(`workspace-cards/${ctx.user.id}/${Date.now()}-${input.filename.replace(/[^a-zA-Z0-9._-]/g, "-")}.${extension}`, bytes, input.mimeType);
     }),
   }),
 });
