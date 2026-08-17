@@ -10,7 +10,7 @@ const sourceByFile = Object.fromEntries(activeUiFiles.map(file => [file, readFil
 
 const colors = {
   paper: "#f7f8f9", surface: "#ffffff", offWhite: "#fcfcfc", mutedSurface: "#f8f9fa", managementTile: "#f5f6f7", controlSurface: "#f4f5f6",
-  ink: "#15161a", signalText: "#c8172a", muted: "#4a5056", profileAvatar: "#243b48",
+  ink: "#15161a", signalText: "#c8172a", muted: "#4a5056", profileAvatar: "#243b48", tableSurface: "#f1f3f4", selectedSurface: "#fff5f6", success: "#29563a", scheduled: "#73580b", approved: "#245566", buttonBorder: "#b9c0c5",
 };
 
 function relativeLuminance(hex) {
@@ -67,6 +67,20 @@ const cssTextPairs = [
   ["not-found and error icon color", [".not-found-panel > svg", ".error-boundary-panel > svg"], colors.signalText, colors.surface],
   ["not-found and error panel text", [".not-found-panel > p:not(.dash-eyebrow)", ".error-boundary-panel > p:not(.dash-eyebrow)"], colors.muted, colors.surface],
   ["error diagnostic text", [".error-boundary-details"], colors.muted, colors.mutedSurface],
+  ["console table header text", [".console-table th"], colors.muted, colors.tableSurface],
+  ["console table body text", [".console-table td"], colors.muted, colors.surface],
+  ["console item text", [".console-item-button"], colors.ink, colors.surface],
+  ["console neutral status", [".console-status"], colors.muted, colors.surface],
+  ["console published status", [".console-status--published"], colors.success, colors.surface],
+  ["console scheduled status", [".console-status--scheduled", ".console-status--in_review"], colors.scheduled, colors.surface],
+  ["console approved status", [".console-status--approved"], colors.approved, colors.surface],
+  ["console archived status", [".console-status--archived", ".console-status--unpublished"], colors.muted, colors.surface],
+  ["console action text", [".console-row-actions button", ".console-editor-actions > button", ".console-confirm-actions > button"], colors.ink, colors.surface],
+  ["console hovered action text", [".console-row-actions button:hover", ".console-editor-actions > button:hover", ".console-confirm-actions > button:hover"], colors.signalText, colors.surface],
+  ["console form input text", [".console-form-grid input", ".console-form-grid select", ".console-form-grid textarea"], colors.ink, colors.surface],
+  ["console reminder configuration text", [".console-reminder-settings input"], colors.ink, colors.controlSurface],
+  ["console empty-editor text", [".console-empty-editor"], colors.muted, colors.surface],
+  ["console preview text", [".console-preview-bar", ".console-preview-bar button"], colors.surface, colors.ink],
 ];
 
 const sourcePairs = [

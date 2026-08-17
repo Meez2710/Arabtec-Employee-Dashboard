@@ -5,6 +5,8 @@ export const digestStatuses = ["draft", "in_review", "approved", "published"] as
 export const digestAudiences = ["employees", "owners", "joiners"] as const;
 export const workspaceCardSlots = ["new_joiner", "company_news", "announcement", "activity", "industry_watch", "opportunity"] as const;
 export const workspaceImageModes = ["none", "upload", "link_preview"] as const;
+/** Extends the digest model with scheduled, unpublished, and archived Workspace-specific states. */
+export const workspaceContentStatuses = ["draft", "in_review", "approved", "scheduled", "published", "unpublished", "archived"] as const;
 
 /** Core user table backing the Manus OAuth flow. */
 export const users = mysqlTable("users", {
@@ -48,10 +50,10 @@ export const dailyDigestEntries = mysqlTable("dailyDigestEntries", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
-/** Reusable public dashboard cards managed by an Admin. File bytes stay in S3; this table stores metadata and destinations only. */
+/** Employee-facing Workspace items, using the digest-style publishing lifecycle and safe archive state. */
 export const workspaceCards = mysqlTable("workspaceCards", {
   id: int("id").autoincrement().primaryKey(),
-  slot: mysqlEnum("slot", workspaceCardSlots).notNull().unique(),
+  slot: mysqlEnum("slot", workspaceCardSlots).notNull(),
   eyebrow: varchar("eyebrow", { length: 80 }).notNull(),
   title: varchar("title", { length: 180 }).notNull(),
   body: text("body").notNull(),
@@ -60,12 +62,34 @@ export const workspaceCards = mysqlTable("workspaceCards", {
   imageMode: mysqlEnum("imageMode", workspaceImageModes).default("none").notNull(),
   sortOrder: int("sortOrder").default(0).notNull(),
   active: int("active").default(1).notNull(),
+  status: mysqlEnum("status", workspaceContentStatuses).default("draft").notNull(),
+  scheduledFor: timestamp("scheduledFor"),
+  publishedAt: timestamp("publishedAt"),
+  expiresAt: timestamp("expiresAt"),
+  reviewBy: timestamp("reviewBy"),
+  ownerUserId: int("ownerUserId"),
+  createdByUserId: int("createdByUserId"),
+  archivedByUserId: int("archivedByUserId"),
+  archivedAt: timestamp("archivedAt"),
+  reviewReminderSentAt: timestamp("reviewReminderSentAt"),
   updatedByUserId: int("updatedByUserId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
-/** Repeatable disclosures displayed on card hover/focus. Each belongs to one dashboard content section. */
+/** Immutable operational history for changes that affect an employee-facing Workspace item. */
+export const workspaceContentHistory = mysqlTable("workspaceContentHistory", {
+  id: int("id").autoincrement().primaryKey(),
+  workspaceCardId: int("workspaceCardId").notNull(),
+  action: varchar("action", { length: 40 }).notNull(),
+  fromStatus: varchar("fromStatus", { length: 24 }),
+  toStatus: varchar("toStatus", { length: 24 }),
+  actorUserId: int("actorUserId"),
+  note: text("note"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+/** Repeatable detail disclosures displayed within a parent Workspace section. */
 export const workspaceHoverCards = mysqlTable("workspaceHoverCards", {
   id: int("id").autoincrement().primaryKey(),
   parentSlot: mysqlEnum("parentSlot", workspaceCardSlots).notNull(),

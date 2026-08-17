@@ -2,9 +2,11 @@ import { z } from "zod";
 
 export const workspaceCardSlots = ["new_joiner", "company_news", "announcement", "activity", "industry_watch", "opportunity"] as const;
 export const workspaceImageModes = ["none", "upload", "link_preview"] as const;
+export const workspaceContentStatuses = ["draft", "in_review", "approved", "scheduled", "published", "unpublished", "archived"] as const;
 const workspaceImageUrlSchema = z.union([z.string().url().max(2048), z.string().regex(/^\/manus-storage\//).max(2048)]);
 
 export const workspaceCardSchema = z.object({
+  id: z.number().int().positive().optional(),
   slot: z.enum(workspaceCardSlots),
   eyebrow: z.string().trim().min(1).max(80),
   title: z.string().trim().min(1).max(180),
@@ -14,9 +16,17 @@ export const workspaceCardSchema = z.object({
   imageMode: z.enum(workspaceImageModes).default("none"),
   sortOrder: z.number().int().min(0).max(99).default(0),
   active: z.boolean().default(true),
+  status: z.enum(workspaceContentStatuses).default("draft"),
+  scheduledFor: z.date().nullable().optional(),
+  expiresAt: z.date().nullable().optional(),
+  reviewBy: z.date().nullable().optional(),
+  ownerUserId: z.number().int().positive().nullable().optional(),
 });
 
-/** A repeatable hover disclosure attached to a dashboard section. For new joiners, use eyebrow for department and title for job title. */
+export const workspaceItemIdSchema = z.object({ id: z.number().int().positive() });
+export const workspacePublishItemSchema = workspaceItemIdSchema.extend({ confirmed: z.literal(true) });
+
+/** A repeatable accessible disclosure attached to a dashboard section. For new joiners, use eyebrow for department and title for job title. */
 export const workspaceHoverCardSchema = z.object({
   id: z.number().int().positive().optional(),
   parentSlot: z.enum(workspaceCardSlots),

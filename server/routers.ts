@@ -3,24 +3,38 @@ import { dailyDigestDraftSchema, dailyDigestIdSchema } from "./digestSchemas";
 import {
   getDailyDigestById,
   getCurrentDailyDigest,
+  approveWorkspaceItem,
+  archiveWorkspaceItem,
   bulkSaveWorkspaceHoverCards,
   deleteWorkspaceHoverCard,
+  duplicateWorkspaceItem,
+  getWorkspaceItemById,
+  getWorkspaceItemHistory,
+  listManagedWorkspaceItems,
+  listWorkspaceOwners,
   listWorkspaceCards,
   listWorkspaceHoverCards,
   publishDailyDigest,
+  publishWorkspaceItem,
+  restoreWorkspaceItem,
   saveDailyDigestDraft,
   saveWorkspaceCard,
+  saveWorkspaceItem,
   saveWorkspaceHoverCard,
+  submitWorkspaceItemForReview,
   submitDailyDigestForReview,
+  unpublishWorkspaceItem,
 } from "./db";
 import { canPerformDigestAction, digestTransitionMessage, type DigestAction, type DigestLifecycleStatus } from "./digestLifecycle";
+import { canPerformWorkspaceAction, workspaceTransitionMessage, type WorkspaceContentAction, type WorkspaceContentStatus } from "./workspaceLifecycle";
+import { isReviewReminderEmailConfigured } from "./reviewReminders";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, editorProcedure, publicProcedure, router } from "./_core/trpc";
 import { TRPCError } from "@trpc/server";
 import { storagePut } from "./storage";
 import { resolveLinkPreview } from "./workspaceLinks";
-import { workspaceCardSchema, workspaceEmployeeBulkSchema, workspaceHoverCardIdSchema, workspaceHoverCardSchema, workspaceImageUploadSchema } from "./workspaceSchemas";
+import { workspaceCardSchema, workspaceEmployeeBulkSchema, workspaceHoverCardIdSchema, workspaceHoverCardSchema, workspaceImageUploadSchema, workspaceItemIdSchema, workspacePublishItemSchema } from "./workspaceSchemas";
 
 function requireDigest<T>(digest: T | undefined): T {
   if (!digest) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Daily digest data is unavailable" });
@@ -35,6 +49,14 @@ async function requirePermittedDigestAction(id: number, action: DigestAction) {
     throw new TRPCError({ code: "BAD_REQUEST", message: digestTransitionMessage(status, action) });
   }
   return digest;
+}
+
+async function requirePermittedWorkspaceAction(id: number, action: WorkspaceContentAction) {
+  const item = await getWorkspaceItemById(id);
+  if (!item) throw new TRPCError({ code: "NOT_FOUND", message: "Workspace item not found" });
+  const status = item.status as WorkspaceContentStatus;
+  if (!canPerformWorkspaceAction(status, action)) throw new TRPCError({ code: "BAD_REQUEST", message: workspaceTransitionMessage(status, action) });
+  return item;
 }
 
 export const appRouter = router({
@@ -65,6 +87,43 @@ export const appRouter = router({
   workspace: router({
     listCards: publicProcedure.query(() => listWorkspaceCards()),
     listHoverCards: publicProcedure.query(() => listWorkspaceHoverCards()),
+    listManagedItems: adminProcedure.query(() => listManagedWorkspaceItems()),
+    listOwners: adminProcedure.query(() => listWorkspaceOwners()),
+    getReminderConfiguration: adminProcedure.query(() => ({ emailConfigured: isReviewReminderEmailConfigured(), sender: process.env.WORKSPACE_REMINDER_FROM ?? null })),
+    getItemHistory: adminProcedure.input(workspaceItemIdSchema).query(({ input }) => getWorkspaceItemHistory(input.id)),
+    saveItem: adminProcedure.input(workspaceCardSchema).mutation(async ({ ctx, input }) => {
+      let imageUrl = input.imageUrl ?? null;
+      if (input.imageMode === "link_preview" && input.linkUrl && !imageUrl) imageUrl = (await resolveLinkPreview(input.linkUrl).catch(() => ({ imageUrl: null }))).imageUrl;
+      return saveWorkspaceItem({ ...input, imageUrl }, ctx.user.id);
+    }),
+    publishItem: adminProcedure.input(workspacePublishItemSchema).mutation(async ({ ctx, input }) => {
+      await requirePermittedWorkspaceAction(input.id, "publish");
+      return publishWorkspaceItem(input.id, ctx.user.id);
+    }),
+    unpublishItem: adminProcedure.input(workspaceItemIdSchema).mutation(async ({ ctx, input }) => {
+      await requirePermittedWorkspaceAction(input.id, "unpublish");
+      return unpublishWorkspaceItem(input.id, ctx.user.id);
+    }),
+    archiveItem: adminProcedure.input(workspaceItemIdSchema).mutation(async ({ ctx, input }) => {
+      await requirePermittedWorkspaceAction(input.id, "archive");
+      return archiveWorkspaceItem(input.id, ctx.user.id);
+    }),
+    restoreItem: adminProcedure.input(workspaceItemIdSchema).mutation(async ({ ctx, input }) => {
+      await requirePermittedWorkspaceAction(input.id, "restore");
+      return restoreWorkspaceItem(input.id, ctx.user.id);
+    }),
+    duplicateItem: adminProcedure.input(workspaceItemIdSchema).mutation(async ({ ctx, input }) => {
+      await requirePermittedWorkspaceAction(input.id, "duplicate");
+      return duplicateWorkspaceItem(input.id, ctx.user.id);
+    }),
+    submitItemForReview: adminProcedure.input(workspaceItemIdSchema).mutation(async ({ ctx, input }) => {
+      await requirePermittedWorkspaceAction(input.id, "submit");
+      return submitWorkspaceItemForReview(input.id, ctx.user.id);
+    }),
+    approveItem: adminProcedure.input(workspaceItemIdSchema).mutation(async ({ ctx, input }) => {
+      await requirePermittedWorkspaceAction(input.id, "approve");
+      return approveWorkspaceItem(input.id, ctx.user.id);
+    }),
     saveCard: adminProcedure.input(workspaceCardSchema).mutation(async ({ ctx, input }) => {
       let imageUrl = input.imageUrl ?? null;
       if (input.imageMode === "link_preview" && input.linkUrl && !imageUrl) {

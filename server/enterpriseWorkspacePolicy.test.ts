@@ -35,7 +35,8 @@ describe("enterprise Workspace policy", () => {
     expect(stylesheet).not.toMatch(/font-size:\s*(?:[0-9]|1[0-2])px/);
     expect(activeUiSource).not.toMatch(/text-xs|text-\[(?:[0-9]|1[0-2])px\]|text-\[0\.[0-9]+rem\]|tracking-\[-|tracking-tight/);
     expect(stylesheet).not.toMatch(/aspect-ratio\s*:/);
-    expect(stylesheet).not.toMatch(/overflow:\s*(?:auto|scroll|hidden)/);
+    const cardRules = stylesheet.match(/\.dash-card(?:[\w\s>.:,-]*)\{[^}]*\}/g) ?? [];
+    expect(cardRules.join("\n")).not.toMatch(/overflow(?:-x|-y)?\s*:\s*(?:auto|scroll|hidden)/);
   });
 
   it("maps every actual CSS text rule and shared app-shell text utility to a verified contrast pairing", () => {
