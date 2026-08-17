@@ -15,3 +15,10 @@
 - [x] Add a reduced-motion mode that disables transitions and smooth scrolling.
 - [x] Validate the refined dashboard at 1440px, 1024px, and 375px.
 - [x] Remove legacy stored demo records still visible in the public employee workspace.
+- [x] Verify every visible employee-facing figure and name is sourced from published database content or removed.
+- [x] Remove unused legacy briefing components that retain unverified names, figures, or noncompliant typography.
+- [x] Verify no rendered card can create an internal scrollbar at desktop, tablet, or mobile widths.
+- [x] Audit every text declaration for the 13px minimum and WCAG AA contrast on its rendered background.
+- [x] Derive the full routed-app component inventory and map each active rendered text selector and Tailwind text utility to its actual background.
+- [x] Expand automated policy coverage across the derived active UI inventory for typography, names, and data-backed figures.
+- [x] Apply any final enterprise-readiness corrections surfaced by the inventory-derived compliance audit.
