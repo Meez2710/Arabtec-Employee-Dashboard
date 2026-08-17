@@ -10,3 +10,4 @@
 - [x] Remove authentication/login and the Editor/Admin console routes from the employee-facing workspace.
 - [x] Rebuild the homepage information architecture for welcome, date, onboarding, internal jobs, news, announcements, holidays, events, and industry news.
 - [x] Remove generated photography and deliver a content-first responsive internal workspace layout.
+- [x] Replace the Workspace header logo and browser favicon with the supplied official Arabtec logo asset.

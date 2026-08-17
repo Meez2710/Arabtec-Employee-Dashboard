@@ -9,7 +9,7 @@ export function BriefingHeader() {
     <header className="border-b-2 border-ink bg-paper px-4 py-4 md:px-8 lg:px-12">
       <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-4">
         <a href="#today" className="flex items-center gap-3 text-ink no-underline">
-          <img src="/manus-storage/arabtec-angular-mark_3d43127c.png" alt="Arabtec" className="h-9 w-9 object-contain" />
+          <img src="/manus-storage/arabtec-official-logo_467b325f.svg" alt="Arabtec" className="h-9 w-9 object-contain" />
           <div className="leading-none">
             <p className="font-display text-[1.2rem] font-bold tracking-[-0.065em]">arabtec</p>
             <p className="mt-1 text-[0.6rem] font-bold uppercase tracking-[0.18em] text-muted-foreground">employee workspace</p>
