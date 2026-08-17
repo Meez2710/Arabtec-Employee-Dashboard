@@ -22,3 +22,11 @@
 - [x] Derive the full routed-app component inventory and map each active rendered text selector and Tailwind text utility to its actual background.
 - [x] Expand automated policy coverage across the derived active UI inventory for typography, names, and data-backed figures.
 - [x] Apply any final enterprise-readiness corrections surfaced by the inventory-derived compliance audit.
+- [x] Replace hover-only card disclosures with an accessible touch, mouse, and keyboard interaction.
+- [x] Remove non-interactive focus targets and provide descriptive alternative text for informative imagery.
+- [x] Make every employee-facing Quick Access, View all, and search control perform a clear, real action or remove it.
+- [x] Add an English/Arabic locale switch that sets document language and direction, uses Arabic typography, and mirrors the Workspace correctly.
+- [x] Replace physical CSS directionality with logical properties across the active Workspace stylesheet.
+- [x] Add regression checks for directional CSS, keyboard/touch disclosure, functional links, image descriptions, and locale behavior.
+- [x] Add explicit visible focus styling for native detail disclosures and verify keyboard activation across Phase 4 controls.
+- [x] Validate Phase 4 behavior at desktop, touch-mobile, keyboard focus, and Arabic RTL layouts.
