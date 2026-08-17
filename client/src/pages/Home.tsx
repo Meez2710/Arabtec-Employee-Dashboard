@@ -57,13 +57,14 @@ export default function Home() {
       <main className="dashboard-shell">
         <section className="dashboard-grid" aria-label="Arabtec employee workspace">
           <WelcomeCard />
-          <NewJoinerCard card={cards.new_joiner} />
           <OnboardingProgress />
+          <ThisWeek />
+          <NewJoinerCard card={cards.new_joiner} />
 
           <div className="dashboard-column dashboard-column--left" id="company"><CompanyNews card={featuredNews} index={newsIndex} onPrevious={() => setNewsIndex(current => (current + newsCards.length - 1) % newsCards.length)} onNext={() => setNewsIndex(current => (current + 1) % newsCards.length)} /><InternalOpportunities card={cards.opportunity} /></div>
           <div className="dashboard-column"><Announcements card={cards.announcement} /><Activities card={cards.activity} /></div>
-          <div className="dashboard-column"><ThisWeek /><QuickAccess /></div>
-          <div className="dashboard-column"><IndustryWatch card={cards.industry_watch} /><Policies /></div>
+          <div className="dashboard-column"><QuickAccess /><Policies /></div>
+          <div className="dashboard-column"><IndustryWatch card={cards.industry_watch} /></div>
         </section>
         <MobilePreview card={cards.company_news} />
       </main>

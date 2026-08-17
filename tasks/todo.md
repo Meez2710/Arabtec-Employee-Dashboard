@@ -23,3 +23,5 @@
 - [x] Add configurable content-card fields for title, text, external link, uploaded image, and image-from-link preview.
 - [x] Make dashboard cards and quick-access destinations clickable with safe external-link behavior.
 - [x] Validate the reference-led dashboard layout and content-card interactions on desktop and mobile.
+- [x] Reduce the new-joiner card to the standard dashboard-card footprint and place it in the right-side support area.
+- [x] Validate the revised dashboard emphasis on desktop and mobile.

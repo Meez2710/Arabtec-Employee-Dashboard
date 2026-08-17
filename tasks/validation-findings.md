@@ -15,3 +15,7 @@ Desktop validation confirms the first fold is now divided into a copy-led onboar
 ## Two-Option Layout Comparison
 
 Both option routes compile and render at desktop and mobile widths. **Option A** implements the requested desktop arrangement: fixed welcome copy, two independently automated vertical feeds for onboarding and company news, and a fixed calendar/index/upcoming-activity rail. It remains usable on mobile, but its two continuous feeds produce a comparatively long mobile page. **Option B** uses a manual onboarding carousel, a stable news list, and a compact utility rail; it presents the same content with a shorter, clearer mobile reading sequence. The comparison control is available at the top of both options.
+
+## New-Joiner Card Rebalance
+
+Desktop validation confirms the new-joiner card now occupies the far-right supporting slot at the same one-column footprint as the welcome, onboarding, and weekly-activity cards. Its photo and copy are scaled down, keeping the broad dashboard focused on the whole employee experience. Mobile validation confirms the compact card follows the welcome and weekly activity surfaces without dominating the vertical reading sequence.
