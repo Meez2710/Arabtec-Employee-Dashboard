@@ -56,6 +56,12 @@ Examples:
 - “Three joiners start next week. Two decisions are still open.”
 - “Send the Thursday digest after the owner review is complete.”
 
+## Employee Workspace Correction
+
+The employee-facing homepage must be **open and content-first**. Do not request sign-in, surface role controls, or present editorial workflows. Do not use generated photography. The first screen must orient an employee with a welcome message, the date, local conditions, immediate announcements, and the day’s priorities.
+
+The primary communication modules are **Onboarding**, **Internal Job Ads**, **Company News**, **Announcements**, **Official Holidays & Events**, and **Industry News**. These modules should feel like a well-organized internal newspaper: one clear lead story, an announcement rail, purposeful metadata, and compact lists that explain what is new and why it matters. Use abstract graphic accents, line icons, typography, dates, and status rules instead of decorative imagery.
+
 ## Wordmark & Logo
 
 Use a compact red angular construction mark paired with the `arabtec` wordmark treatment from the supplied reference. The mark is a bold graphic symbol, never a generic circular app icon.
