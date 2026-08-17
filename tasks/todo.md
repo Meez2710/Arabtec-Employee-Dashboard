@@ -43,4 +43,4 @@
 - [x] Remove temporary signed-in console validation records and their history after the end-to-end test.
 - [x] Validate that a non-technical administrator can publish, schedule, preview, unpublish, archive, and restore without assistance.
 - [ ] Push the finalized Workspace console changes to the connected GitHub repository and verify the remote branch is current.
-- [ ] Confirm the finalized Workspace console deployment is live at the published application domain.
+- [x] Confirm the finalized Workspace console deployment is live at the published application domain.
