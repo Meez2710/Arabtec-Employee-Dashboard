@@ -14,3 +14,7 @@
 - [x] Redesign the first page as a split onboarding hero with left-side copy and a horizontal visual onboarding gallery.
 - [x] Modernize company news and announcement sections with richer visual hierarchy and content cards.
 - [x] Validate the redesigned homepage on desktop and mobile before publishing.
+- [x] Research professional intranet and editorial-dashboard patterns for the next Workspace layout iteration.
+- [x] Build Option A with two automated right-side content feeds and a fixed calendar, index, and activity column.
+- [x] Build Option B as a usability-led alternative and make both layouts easy to compare.
+- [x] Validate both layout options on desktop and mobile before presentation.
