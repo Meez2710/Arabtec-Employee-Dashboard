@@ -23,3 +23,17 @@ Desktop validation confirms the new-joiner card now occupies the far-right suppo
 ## Square Cards and Managed Hover Cards
 
 The top dashboard row is now composed of equal square modules: welcome, announcements, weekly activities, and the supporting new-joiner card. The newcomer portrait uses contain sizing, preserving the full image rather than using a narrow face crop. Company news, announcements, industry watch, activities, and employee cards now carry accessible hover/focus overlays backed by repeatable hover-card data. The Admin page displays existing hover-card tiles and an **Add hover card** action that opens an empty square editor supporting text, HTTPS link previews, and image uploads.
+
+## Bulk Employee Import
+
+The Administrator’s **New Joiner** section now includes a batch import panel. It supports selecting up to 25 JPG, PNG, or WebP employee images (5 MB maximum per image), then requires a name, department, job title, and concise profile for each queued employee. Images are uploaded through the project’s managed storage path before one validated batch creates the corresponding new-joiner hover cards. Desktop and mobile views retain a clear import surface, existing hover-card overview, and empty state.
+
+The bulk workflow now reports item-level upload and persistence errors. Successfully imported employee rows are removed from the queue, while failed rows remain visible with their specific error message for correction and retry. Type validation, storage-path validation, batch schema tests, and production build pass. A live batch remains deliberately unseeded until approved employee images and details are supplied by an authorized Admin.
+
+The bulk contract test passed after the item-level reporting update. The public hover-card endpoint was queried without adding employee records and returned the managed `/manus-storage/...` image paths for existing employee/activity hover cards, confirming that the public dashboard can resolve stored media after a future authorized import.
+
+## Private Workspace Manager Route
+
+The employee homepage remains free of any management link or control. The former `/manage` path now renders the application’s not-found screen, while the dedicated `/_admin/workspace-content-7c9f` route resolves to the existing role-gated manager experience. Type checking and production build pass after the route change.
+
+Direct route screenshots confirm that `/manage` renders the application’s 404 surface and that `/_admin/workspace-content-7c9f` alone opens the content manager. The public home route contains no link or control that exposes the manager.

@@ -8,7 +8,7 @@ import Home from "./pages/Home";
 import ManageWorkspace from "./pages/ManageWorkspace";
 
 function Router() {
-  return <Switch><Route path="/" component={Home} /><Route path="/manage" component={ManageWorkspace} /><Route path="/404" component={NotFound} /><Route component={NotFound} /></Switch>;
+  return <Switch><Route path="/" component={Home} /><Route path="/_admin/workspace-content-7c9f" component={ManageWorkspace} /><Route path="/404" component={NotFound} /><Route component={NotFound} /></Switch>;
 }
 
 function App() {

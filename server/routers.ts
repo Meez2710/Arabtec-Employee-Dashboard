@@ -3,6 +3,7 @@ import { dailyDigestDraftSchema, dailyDigestIdSchema } from "./digestSchemas";
 import {
   getDailyDigestById,
   getCurrentDailyDigest,
+  bulkSaveWorkspaceHoverCards,
   deleteWorkspaceHoverCard,
   listWorkspaceCards,
   listWorkspaceHoverCards,
@@ -19,7 +20,7 @@ import { adminProcedure, editorProcedure, publicProcedure, router } from "./_cor
 import { TRPCError } from "@trpc/server";
 import { storagePut } from "./storage";
 import { resolveLinkPreview } from "./workspaceLinks";
-import { workspaceCardSchema, workspaceHoverCardIdSchema, workspaceHoverCardSchema, workspaceImageUploadSchema } from "./workspaceSchemas";
+import { workspaceCardSchema, workspaceEmployeeBulkSchema, workspaceHoverCardIdSchema, workspaceHoverCardSchema, workspaceImageUploadSchema } from "./workspaceSchemas";
 
 function requireDigest<T>(digest: T | undefined): T {
   if (!digest) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Daily digest data is unavailable" });
@@ -79,6 +80,34 @@ export const appRouter = router({
         imageUrl = preview.imageUrl;
       }
       return saveWorkspaceHoverCard({ ...input, imageUrl }, ctx.user.id);
+    }),
+    bulkSaveEmployeeHoverCards: adminProcedure.input(workspaceEmployeeBulkSchema).mutation(async ({ ctx, input }) => {
+      const cards: Array<{ clientId: string; card: Parameters<typeof saveWorkspaceHoverCard>[0] }> = [];
+      const failures: Array<{ clientId: string; message: string }> = [];
+      for (const inputCard of input.cards) {
+        try {
+          const { clientId, ...card } = inputCard;
+          let imageUrl = card.imageUrl ?? null;
+          if (card.imageMode === "link_preview" && card.linkUrl && !imageUrl) {
+            const preview = await resolveLinkPreview(card.linkUrl).catch(() => ({ imageUrl: null, title: null }));
+            imageUrl = preview.imageUrl;
+          }
+          cards.push({ clientId, card: { ...card, imageUrl } });
+        } catch (error) {
+          failures.push({ clientId: inputCard.clientId, message: error instanceof Error ? error.message : "Could not prepare this employee card." });
+        }
+      }
+      const saved = [];
+      for (const item of cards) {
+        try {
+          const card = await saveWorkspaceHoverCard(item.card, ctx.user.id);
+          if (card) saved.push({ clientId: item.clientId, card });
+          else failures.push({ clientId: item.clientId, message: "The employee card was not saved." });
+        } catch (error) {
+          failures.push({ clientId: item.clientId, message: error instanceof Error ? error.message : "The employee card could not be saved." });
+        }
+      }
+      return { created: saved.length, cards: saved, failures };
     }),
     deleteHoverCard: adminProcedure.input(workspaceHoverCardIdSchema).mutation(({ input }) => deleteWorkspaceHoverCard(input.id)),
     uploadImage: adminProcedure.input(workspaceImageUploadSchema).mutation(async ({ ctx, input }) => {

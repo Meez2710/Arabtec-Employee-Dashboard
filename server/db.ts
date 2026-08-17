@@ -150,6 +150,15 @@ export async function saveWorkspaceHoverCard(input: WorkspaceHoverCardInput, use
   return (await db.select().from(workspaceHoverCards).where(eq(workspaceHoverCards.id, Number(result[0].insertId))).limit(1))[0];
 }
 
+export async function bulkSaveWorkspaceHoverCards(inputs: WorkspaceHoverCardInput[], userId: number) {
+  const saved = [];
+  for (const input of inputs) {
+    const card = await saveWorkspaceHoverCard(input, userId);
+    if (card) saved.push(card);
+  }
+  return saved;
+}
+
 export async function deleteWorkspaceHoverCard(id: number) {
   const db = await getDb();
   if (!db) return false;

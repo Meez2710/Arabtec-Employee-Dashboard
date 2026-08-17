@@ -30,3 +30,12 @@
 - [x] Add professional hover states for employee, company-news, industry, activity, and announcement cards.
 - [x] Extend the Admin content manager with scalable “add hover card” controls for image/text or link-based cards.
 - [x] Validate the square-card layout, hover interactions, and Admin hover-card controls on desktop and mobile.
+- [x] Add a bulk employee hover-card import flow with multi-image selection and profile-detail validation.
+- [x] Persist multiple imported employee hover cards safely and show import success or per-record errors.
+- [x] Add a bulk employee preview and review surface to the Admin manager.
+- [x] Validate bulk employee import behavior and public dashboard rendering.
+- [x] Add item-level success and error reporting to the bulk employee import workflow.
+- [x] Verify batch request contracts, storage-path handling, and public hover-card data without seeding unapproved employee records.
+- [x] Verify the updated bulk-import contract and public hover-card storage paths without creating employee records.
+- [x] Move the Admin manager to a dedicated unlinked route that is absent from all employee-facing UI.
+- [x] Validate the dedicated Admin route and retain role-gated access behavior.
