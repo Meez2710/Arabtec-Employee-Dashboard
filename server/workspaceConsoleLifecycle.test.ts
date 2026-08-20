@@ -16,8 +16,13 @@ describe("Workspace administrator console lifecycle", () => {
   it("uses the discoverable /admin route without removing the administrator server guard", () => {
     expect(app).toContain('path="/admin"');
     expect(app).not.toContain("/_admin/workspace-content-7c9f");
-    expect(router).toContain("listManagedItems: adminProcedure");
-    expect(router).toContain("publishItem: adminProcedure");
+    // The console guard is now capability-based, which is stricter than the
+    // previous single admin check: publishing needs `content.publish`, which
+    // an editor does not hold.
+    expect(router).toContain("listManagedItems: consoleProcedure");
+    expect(router).toContain("publishItem: contentPublishProcedure");
+    expect(router).not.toContain("listManagedItems: publicProcedure");
+    expect(router).not.toContain("publishItem: publicProcedure");
   });
 
   it("requires an explicit confirmed publish action and keeps archive non-destructive", () => {

@@ -1,10 +1,11 @@
-import { asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { dailyDigestEntries, dailyDigests, type InsertUser, users, workspaceCards, workspaceContentHistory, workspaceHoverCards } from "../drizzle/schema";
+import { dailyDigestEntries, dailyDigests, type InsertUser, users, workspaceAcknowledgements, workspaceCards, workspaceContentHistory, workspaceHoverCards, workspaceSections } from "../drizzle/schema";
 import type { DailyDigestDraftInput } from "./digestSchemas";
-import type { WorkspaceCardInput, WorkspaceHoverCardInput } from "./workspaceSchemas";
+import type { WorkspaceCardInput, WorkspaceHoverCardInput, WorkspaceLayoutInput, WorkspaceSectionInput, WorkspaceSlot } from "./workspaceSchemas";
 import { resolvePublishStatus, type WorkspaceContentAction, type WorkspaceContentStatus } from "./workspaceLifecycle";
 import { ENV } from "./_core/env";
+import { cairoWeekRange, isSameCairoDay } from "./workspaceTime";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -86,7 +87,20 @@ async function addWorkspaceHistory(workspaceCardId: number, action: WorkspaceCon
 }
 
 function itemFields(input: WorkspaceCardInput) {
-  return { slot: input.slot, eyebrow: input.eyebrow, title: input.title, body: input.body, linkUrl: input.linkUrl ?? null, imageUrl: input.imageUrl ?? null, imageMode: input.imageMode, sortOrder: input.sortOrder, scheduledFor: input.scheduledFor ?? null, expiresAt: input.expiresAt ?? null, reviewBy: input.reviewBy ?? null, ownerUserId: input.ownerUserId ?? null };
+  return {
+    slot: input.slot, eyebrow: input.eyebrow, title: input.title, body: input.body,
+    eyebrowAr: input.eyebrowAr ?? null, titleAr: input.titleAr ?? null, bodyAr: input.bodyAr ?? null,
+    linkUrl: input.linkUrl ?? null, imageUrl: input.imageUrl ?? null, imageMode: input.imageMode,
+    imageAlt: input.imageAlt ?? null, imageAltAr: input.imageAltAr ?? null,
+    cardSize: input.cardSize, severity: input.severity, requiresAck: input.requiresAck ? 1 : 0,
+    eventStart: input.eventStart ?? null, eventEnd: input.eventEnd ?? null,
+    location: input.location ?? null, functionArea: input.functionArea ?? null,
+    closingDate: input.closingDate ?? null, sourceName: input.sourceName ?? null,
+    resourceType: input.resourceType ?? null,
+    sortOrder: input.sortOrder, scheduledFor: input.scheduledFor ?? null,
+    expiresAt: input.expiresAt ?? null, reviewBy: input.reviewBy ?? null,
+    ownerUserId: input.ownerUserId ?? null,
+  };
 }
 
 /** Saves editorial fields only. Publication always requires the dedicated confirmed action. */
@@ -150,7 +164,8 @@ export async function duplicateWorkspaceItem(id: number, userId: number) {
   if (!db) return undefined;
   const source = await getWorkspaceItemById(id);
   if (!source) return undefined;
-  const result = await db.insert(workspaceCards).values({ slot: source.slot, eyebrow: source.eyebrow, title: `Copy of ${source.title}`.slice(0, 180), body: source.body, linkUrl: source.linkUrl, imageUrl: source.imageUrl, imageMode: source.imageMode, sortOrder: source.sortOrder, active: 0, status: "draft", expiresAt: source.expiresAt, reviewBy: source.reviewBy, ownerUserId: source.ownerUserId ?? userId, createdByUserId: userId, updatedByUserId: userId });
+  const { id: _sourceId, createdAt: _createdAt, updatedAt: _updatedAt, publishedAt: _publishedAt, archivedAt: _archivedAt, archivedByUserId: _archivedBy, reviewReminderSentAt: _reminderSent, scheduledFor: _scheduledFor, ...carried } = source;
+  const result = await db.insert(workspaceCards).values({ ...carried, title: `Copy of ${source.title}`.slice(0, 180), active: 0, status: "draft", ownerUserId: source.ownerUserId ?? userId, createdByUserId: userId, updatedByUserId: userId });
   const copyId = Number(result[0].insertId);
   await addWorkspaceHistory(copyId, "duplicate", userId, null, "draft", `Duplicated from item ${id}`);
   return getWorkspaceItemById(copyId);
@@ -246,3 +261,140 @@ export async function saveDailyDigestDraft(input: DailyDigestDraftInput, userId:
 
 export async function submitDailyDigestForReview(id: number, userId: number) { const db = await getDb(); if (!db) return undefined; await db.update(dailyDigests).set({ status: "in_review", updatedByUserId: userId }).where(eq(dailyDigests.id, id)); return getCurrentDailyDigest(); }
 export async function publishDailyDigest(id: number, userId: number) { const db = await getDb(); if (!db) return undefined; await db.update(dailyDigests).set({ status: "published", publishedByUserId: userId, publishedAt: new Date() }).where(eq(dailyDigests.id, id)); return getCurrentDailyDigest(); }
+
+/* ------------------------------------------------------------------------- *
+ * Sections, layout, acknowledgements, people, and the console overview.
+ * ------------------------------------------------------------------------- */
+
+/** Shipped defaults. Seeded once; admins own the labels and order afterwards. */
+const defaultSections: Array<{ slot: WorkspaceSlot; labelEn: string; labelAr: string; defaultSize: "1x1" | "2x1" | "1x2"; sortOrder: number }> = [
+  { slot: "announcement", labelEn: "Announcements", labelAr: "الإعلانات", defaultSize: "2x1", sortOrder: 0 },
+  { slot: "week_ahead", labelEn: "This week", labelAr: "هذا الأسبوع", defaultSize: "1x2", sortOrder: 1 },
+  { slot: "new_joiner", labelEn: "New joiners", labelAr: "المنضمون الجدد", defaultSize: "1x1", sortOrder: 2 },
+  { slot: "company_news", labelEn: "Company news", labelAr: "أخبار الشركة", defaultSize: "2x1", sortOrder: 3 },
+  { slot: "activity", labelEn: "Activities", labelAr: "الأنشطة", defaultSize: "1x1", sortOrder: 4 },
+  { slot: "industry_watch", labelEn: "Industry watch", labelAr: "متابعة القطاع", defaultSize: "1x1", sortOrder: 5 },
+  { slot: "opportunity", labelEn: "Internal opportunities", labelAr: "الفرص الداخلية", defaultSize: "1x1", sortOrder: 6 },
+  { slot: "resource", labelEn: "Policies & resources", labelAr: "السياسات والموارد", defaultSize: "1x1", sortOrder: 7 },
+];
+
+export type WorkspaceSectionRecord = { slot: WorkspaceSlot; labelEn: string; labelAr: string; enabled: boolean; defaultSize: "1x1" | "2x1" | "1x2"; sortOrder: number };
+
+/** Never throws: with no database the employee site still renders the shipped defaults. */
+export async function listWorkspaceSections(): Promise<WorkspaceSectionRecord[]> {
+  const fallback = defaultSections.map(section => ({ ...section, enabled: true }));
+  const db = await getDb();
+  if (!db) return fallback;
+  const rows = await db.select().from(workspaceSections).orderBy(asc(workspaceSections.sortOrder));
+  if (rows.length === 0) return fallback;
+  const bySlot = new Map(rows.map(row => [row.slot, row]));
+  return defaultSections.map(section => {
+    const row = bySlot.get(section.slot);
+    if (!row) return { ...section, enabled: true };
+    return { slot: row.slot as WorkspaceSlot, labelEn: row.labelEn, labelAr: row.labelAr, enabled: row.enabled === 1, defaultSize: row.defaultSize as "1x1" | "2x1" | "1x2", sortOrder: row.sortOrder };
+  }).sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
+export async function saveWorkspaceSection(input: WorkspaceSectionInput, userId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const values = { slot: input.slot, labelEn: input.labelEn, labelAr: input.labelAr, enabled: input.enabled ? 1 : 0, defaultSize: input.defaultSize, sortOrder: input.sortOrder, updatedByUserId: userId };
+  await db.insert(workspaceSections).values(values).onDuplicateKeyUpdate({ set: { labelEn: values.labelEn, labelAr: values.labelAr, enabled: values.enabled, defaultSize: values.defaultSize, sortOrder: values.sortOrder, updatedByUserId: userId } });
+  return (await db.select().from(workspaceSections).where(eq(workspaceSections.slot, input.slot)).limit(1))[0];
+}
+
+/** Applies an ordered layout in one pass. Position is per-item, so two cards can never claim one slot. */
+export async function saveWorkspaceLayout(input: WorkspaceLayoutInput, userId: number) {
+  const db = await getDb();
+  if (!db) return 0;
+  let updated = 0;
+  for (let index = 0; index < input.items.length; index += 1) {
+    const item = input.items[index];
+    await db.update(workspaceCards)
+      .set({ sortOrder: index, cardSize: item.cardSize, updatedByUserId: userId })
+      .where(eq(workspaceCards.id, item.id));
+    updated += 1;
+  }
+  return updated;
+}
+
+export async function acknowledgeWorkspaceItem(workspaceCardId: number, userId: number) {
+  const db = await getDb();
+  if (!db) return false;
+  const existing = await db.select().from(workspaceAcknowledgements)
+    .where(and(eq(workspaceAcknowledgements.workspaceCardId, workspaceCardId), eq(workspaceAcknowledgements.userId, userId)))
+    .limit(1);
+  if (existing.length > 0) return true;
+  await db.insert(workspaceAcknowledgements).values({ workspaceCardId, userId });
+  return true;
+}
+
+/** The ids this employee has already acknowledged, so the UI never re-asks. */
+export async function listAcknowledgedItemIds(userId: number): Promise<number[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db.select({ id: workspaceAcknowledgements.workspaceCardId }).from(workspaceAcknowledgements).where(eq(workspaceAcknowledgements.userId, userId));
+  return rows.map(row => row.id);
+}
+
+export async function countWorkspaceAcknowledgements(workspaceCardId: number) {
+  const db = await getDb();
+  if (!db) return 0;
+  const rows = await db.select({ id: workspaceAcknowledgements.id }).from(workspaceAcknowledgements).where(eq(workspaceAcknowledgements.workspaceCardId, workspaceCardId));
+  return rows.length;
+}
+
+export async function updateUserRole(userId: number, role: typeof users.$inferSelect["role"]) {
+  const db = await getDb();
+  if (!db) return undefined;
+  await db.update(users).set({ role }).where(eq(users.id, userId));
+  return (await db.select().from(users).where(eq(users.id, userId)).limit(1))[0];
+}
+
+export type WorkspaceOverview = {
+  counts: { published: number; scheduled: number; drafts: number; inReview: number; archived: number };
+  needsAttention: {
+    reviewOverdue: ManagedWorkspaceItem[];
+    goingLiveToday: ManagedWorkspaceItem[];
+    expiringThisWeek: ManagedWorkspaceItem[];
+    expiredStillLive: ManagedWorkspaceItem[];
+    missingArabic: ManagedWorkspaceItem[];
+    missingImageAlt: ManagedWorkspaceItem[];
+  };
+  lastPublishedAt: Date | null;
+};
+
+/**
+ * One screen's worth of "what needs me now", computed in Africa/Cairo.
+ * Everything here is derived, never stored, so it cannot go stale.
+ */
+export async function getWorkspaceOverview(now = new Date()): Promise<WorkspaceOverview> {
+  const items = await listManagedWorkspaceItems();
+  const week = cairoWeekRange(now);
+  const live = (item: ManagedWorkspaceItem) => item.status === "published" || item.status === "scheduled";
+
+  const published = items.filter(item => item.status === "published");
+  const lastPublishedAt = published.reduce<Date | null>((latest, item) => {
+    if (!item.publishedAt) return latest;
+    return !latest || item.publishedAt.getTime() > latest.getTime() ? item.publishedAt : latest;
+  }, null);
+
+  return {
+    counts: {
+      published: published.length,
+      scheduled: items.filter(item => item.status === "scheduled").length,
+      drafts: items.filter(item => item.status === "draft").length,
+      inReview: items.filter(item => item.status === "in_review").length,
+      archived: items.filter(item => item.status === "archived").length,
+    },
+    needsAttention: {
+      reviewOverdue: items.filter(item => item.reviewOverdue),
+      goingLiveToday: items.filter(item => item.status === "scheduled" && item.scheduledFor && isSameCairoDay(item.scheduledFor, now)),
+      expiringThisWeek: items.filter(item => live(item) && item.expiresAt && item.expiresAt.getTime() > now.getTime() && item.expiresAt.getTime() <= week.end.getTime()),
+      expiredStillLive: items.filter(item => item.status === "published" && item.active === 1 && item.expiresAt && item.expiresAt.getTime() <= now.getTime()),
+      missingArabic: items.filter(item => live(item) && (!item.titleAr?.trim() || !item.bodyAr?.trim())),
+      missingImageAlt: items.filter(item => live(item) && Boolean(item.imageUrl) && !item.imageAlt?.trim()),
+    },
+    lastPublishedAt,
+  };
+}

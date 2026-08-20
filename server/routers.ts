@@ -1,6 +1,14 @@
 import { COOKIE_NAME } from "@shared/const";
 import { dailyDigestDraftSchema, dailyDigestIdSchema } from "./digestSchemas";
 import {
+  acknowledgeWorkspaceItem,
+  countWorkspaceAcknowledgements,
+  getWorkspaceOverview,
+  listAcknowledgedItemIds,
+  listWorkspaceSections,
+  saveWorkspaceLayout,
+  saveWorkspaceSection,
+  updateUserRole,
   getDailyDigestById,
   getCurrentDailyDigest,
   approveWorkspaceItem,
@@ -30,11 +38,15 @@ import { canPerformWorkspaceAction, workspaceTransitionMessage, type WorkspaceCo
 import { isReviewReminderEmailConfigured } from "./reviewReminders";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { adminProcedure, editorProcedure, publicProcedure, router } from "./_core/trpc";
+import { adminProcedure, editorProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import { auditProcedure, consoleProcedure, contentPublishProcedure, contentWriteProcedure, layoutProcedure, peopleProcedure, sectionsProcedure } from "./procedures";
+import { listAuditLog } from "./audit";
+import { recordAudit } from "./audit";
+import { roleCapabilities } from "./roles";
 import { TRPCError } from "@trpc/server";
 import { storagePut } from "./storage";
 import { resolveLinkPreview } from "./workspaceLinks";
-import { workspaceCardSchema, workspaceEmployeeBulkSchema, workspaceHoverCardIdSchema, workspaceHoverCardSchema, workspaceImageUploadSchema, workspaceItemIdSchema, workspacePublishItemSchema } from "./workspaceSchemas";
+import { evaluatePublishReadiness, workspaceBulkActionSchema, workspaceCardSchema, workspaceEmployeeBulkSchema, workspaceHoverCardIdSchema, workspaceHoverCardSchema, workspaceImageUploadSchema, workspaceItemIdSchema, workspaceLayoutSchema, workspacePublishItemSchema, workspaceRoleSchema, workspaceSectionSchema, type WorkspaceSlot } from "./workspaceSchemas";
 
 function requireDigest<T>(digest: T | undefined): T {
   if (!digest) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Daily digest data is unavailable" });
@@ -85,46 +97,124 @@ export const appRouter = router({
     }),
   }),
   workspace: router({
+    /* ---- Employee-facing (public) ---- */
     listCards: publicProcedure.query(() => listWorkspaceCards()),
     listHoverCards: publicProcedure.query(() => listWorkspaceHoverCards()),
-    listManagedItems: adminProcedure.query(() => listManagedWorkspaceItems()),
-    listOwners: adminProcedure.query(() => listWorkspaceOwners()),
-    getReminderConfiguration: adminProcedure.query(() => ({ emailConfigured: isReviewReminderEmailConfigured(), sender: process.env.WORKSPACE_REMINDER_FROM ?? null })),
-    getItemHistory: adminProcedure.input(workspaceItemIdSchema).query(({ input }) => getWorkspaceItemHistory(input.id)),
-    saveItem: adminProcedure.input(workspaceCardSchema).mutation(async ({ ctx, input }) => {
+    listSections: publicProcedure.query(() => listWorkspaceSections()),
+
+    /* ---- Employee-facing (signed in) ---- */
+    listAcknowledged: protectedProcedure.query(({ ctx }) => listAcknowledgedItemIds(ctx.user.id)),
+    acknowledgeItem: protectedProcedure.input(workspaceItemIdSchema).mutation(async ({ ctx, input }) => {
+      const item = await getWorkspaceItemById(input.id);
+      if (!item) throw new TRPCError({ code: "NOT_FOUND", message: "That notice is no longer available." });
+      if (item.requiresAck !== 1) throw new TRPCError({ code: "BAD_REQUEST", message: "That notice does not ask for acknowledgement." });
+      // Acknowledging something the employee cannot see would be meaningless.
+      const visible = await listWorkspaceCards();
+      if (!visible.some(card => card.id === input.id)) throw new TRPCError({ code: "NOT_FOUND", message: "That notice is no longer available." });
+      await acknowledgeWorkspaceItem(input.id, ctx.user.id);
+      return { acknowledged: true } as const;
+    }),
+
+    /* ---- Console: read ---- */
+    getCapabilities: publicProcedure.query(({ ctx }) => ({ role: ctx.user?.role ?? null, capabilities: roleCapabilities(ctx.user?.role) })),
+    getOverview: consoleProcedure.query(() => getWorkspaceOverview()),
+    listManagedItems: consoleProcedure.query(() => listManagedWorkspaceItems()),
+    listOwners: consoleProcedure.query(() => listWorkspaceOwners()),
+    getReminderConfiguration: consoleProcedure.query(() => ({ emailConfigured: isReviewReminderEmailConfigured(), sender: process.env.WORKSPACE_REMINDER_FROM ?? null })),
+    getItemHistory: consoleProcedure.input(workspaceItemIdSchema).query(({ input }) => getWorkspaceItemHistory(input.id)),
+    getAcknowledgementCount: consoleProcedure.input(workspaceItemIdSchema).query(({ input }) => countWorkspaceAcknowledgements(input.id)),
+    listAuditLog: auditProcedure.query(() => listAuditLog()),
+
+    /* ---- Console: content ---- */
+    saveItem: contentWriteProcedure.input(workspaceCardSchema).mutation(async ({ ctx, input }) => {
       let imageUrl = input.imageUrl ?? null;
       if (input.imageMode === "link_preview" && input.linkUrl && !imageUrl) imageUrl = (await resolveLinkPreview(input.linkUrl).catch(() => ({ imageUrl: null }))).imageUrl;
-      return saveWorkspaceItem({ ...input, imageUrl }, ctx.user.id);
+      const before = input.id ? await getWorkspaceItemById(input.id) : null;
+      const saved = await saveWorkspaceItem({ ...input, imageUrl }, ctx.user.id);
+      await recordAudit({ entity: "workspace_card", entityId: saved?.id ?? null, action: input.id ? "content.updated" : "content.created", actorUserId: ctx.user.id, actorLabel: ctx.user.name ?? ctx.user.email, summary: `${input.id ? "Updated" : "Created"} “${input.title}”`, before, after: saved });
+      return saved;
     }),
-    publishItem: adminProcedure.input(workspacePublishItemSchema).mutation(async ({ ctx, input }) => {
-      await requirePermittedWorkspaceAction(input.id, "publish");
-      return publishWorkspaceItem(input.id, ctx.user.id);
+    publishItem: contentPublishProcedure.input(workspacePublishItemSchema).mutation(async ({ ctx, input }) => {
+      const item = await requirePermittedWorkspaceAction(input.id, "publish");
+      // The console mirrors these gates, but the server is what enforces them.
+      const { blockers } = evaluatePublishReadiness({ ...item, slot: item.slot as WorkspaceSlot });
+      if (blockers.length > 0) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: `This item is not ready to publish: ${blockers.map(blocker => blocker.message).join(" ")}` });
+      }
+      const published = await publishWorkspaceItem(input.id, ctx.user.id);
+      await recordAudit({ entity: "workspace_card", entityId: input.id, action: published?.status === "scheduled" ? "content.scheduled" : "content.published", actorUserId: ctx.user.id, actorLabel: ctx.user.name ?? ctx.user.email, summary: `${published?.status === "scheduled" ? "Scheduled" : "Published"} “${item.title}”`, before: item, after: published });
+      return published;
     }),
-    unpublishItem: adminProcedure.input(workspaceItemIdSchema).mutation(async ({ ctx, input }) => {
-      await requirePermittedWorkspaceAction(input.id, "unpublish");
-      return unpublishWorkspaceItem(input.id, ctx.user.id);
+    unpublishItem: contentPublishProcedure.input(workspaceItemIdSchema).mutation(async ({ ctx, input }) => {
+      const item = await requirePermittedWorkspaceAction(input.id, "unpublish");
+      const result = await unpublishWorkspaceItem(input.id, ctx.user.id);
+      await recordAudit({ entity: "workspace_card", entityId: input.id, action: "content.unpublished", actorUserId: ctx.user.id, actorLabel: ctx.user.name ?? ctx.user.email, summary: `Unpublished “${item.title}”`, before: item, after: result });
+      return result;
     }),
-    archiveItem: adminProcedure.input(workspaceItemIdSchema).mutation(async ({ ctx, input }) => {
-      await requirePermittedWorkspaceAction(input.id, "archive");
-      return archiveWorkspaceItem(input.id, ctx.user.id);
+    archiveItem: contentWriteProcedure.input(workspaceItemIdSchema).mutation(async ({ ctx, input }) => {
+      const item = await requirePermittedWorkspaceAction(input.id, "archive");
+      const result = await archiveWorkspaceItem(input.id, ctx.user.id);
+      await recordAudit({ entity: "workspace_card", entityId: input.id, action: "content.archived", actorUserId: ctx.user.id, actorLabel: ctx.user.name ?? ctx.user.email, summary: `Archived “${item.title}”`, before: item, after: result });
+      return result;
     }),
-    restoreItem: adminProcedure.input(workspaceItemIdSchema).mutation(async ({ ctx, input }) => {
-      await requirePermittedWorkspaceAction(input.id, "restore");
-      return restoreWorkspaceItem(input.id, ctx.user.id);
+    restoreItem: contentWriteProcedure.input(workspaceItemIdSchema).mutation(async ({ ctx, input }) => {
+      const item = await requirePermittedWorkspaceAction(input.id, "restore");
+      const result = await restoreWorkspaceItem(input.id, ctx.user.id);
+      await recordAudit({ entity: "workspace_card", entityId: input.id, action: "content.restored", actorUserId: ctx.user.id, actorLabel: ctx.user.name ?? ctx.user.email, summary: `Restored “${item.title}” as a draft`, before: item, after: result });
+      return result;
     }),
-    duplicateItem: adminProcedure.input(workspaceItemIdSchema).mutation(async ({ ctx, input }) => {
+    duplicateItem: contentWriteProcedure.input(workspaceItemIdSchema).mutation(async ({ ctx, input }) => {
       await requirePermittedWorkspaceAction(input.id, "duplicate");
       return duplicateWorkspaceItem(input.id, ctx.user.id);
     }),
-    submitItemForReview: adminProcedure.input(workspaceItemIdSchema).mutation(async ({ ctx, input }) => {
+    submitItemForReview: contentWriteProcedure.input(workspaceItemIdSchema).mutation(async ({ ctx, input }) => {
       await requirePermittedWorkspaceAction(input.id, "submit");
       return submitWorkspaceItemForReview(input.id, ctx.user.id);
     }),
-    approveItem: adminProcedure.input(workspaceItemIdSchema).mutation(async ({ ctx, input }) => {
+    approveItem: contentPublishProcedure.input(workspaceItemIdSchema).mutation(async ({ ctx, input }) => {
       await requirePermittedWorkspaceAction(input.id, "approve");
       return approveWorkspaceItem(input.id, ctx.user.id);
     }),
-    saveCard: adminProcedure.input(workspaceCardSchema).mutation(async ({ ctx, input }) => {
+    bulkAction: contentPublishProcedure.input(workspaceBulkActionSchema).mutation(async ({ ctx, input }) => {
+      const applied: number[] = [];
+      const skipped: Array<{ id: number; reason: string }> = [];
+      for (const id of input.ids) {
+        const item = await getWorkspaceItemById(id);
+        if (!item) { skipped.push({ id, reason: "No longer available" }); continue; }
+        if (!canPerformWorkspaceAction(item.status as WorkspaceContentStatus, input.action)) {
+          skipped.push({ id, reason: workspaceTransitionMessage(item.status as WorkspaceContentStatus, input.action) });
+          continue;
+        }
+        if (input.action === "archive") await archiveWorkspaceItem(id, ctx.user.id);
+        else await unpublishWorkspaceItem(id, ctx.user.id);
+        applied.push(id);
+      }
+      await recordAudit({ entity: "workspace_card", action: `content.bulk_${input.action}`, actorUserId: ctx.user.id, actorLabel: ctx.user.name ?? ctx.user.email, summary: `Bulk ${input.action} applied to ${applied.length} item${applied.length === 1 ? "" : "s"}` });
+      return { applied, skipped };
+    }),
+
+    /* ---- Console: layout, sections, people ---- */
+    saveLayout: layoutProcedure.input(workspaceLayoutSchema).mutation(async ({ ctx, input }) => {
+      const updated = await saveWorkspaceLayout(input, ctx.user.id);
+      await recordAudit({ entity: "layout", action: "layout.updated", actorUserId: ctx.user.id, actorLabel: ctx.user.name ?? ctx.user.email, summary: `Reordered ${updated} card${updated === 1 ? "" : "s"} on the employee home` });
+      return { updated };
+    }),
+    saveSection: sectionsProcedure.input(workspaceSectionSchema).mutation(async ({ ctx, input }) => {
+      const result = await saveWorkspaceSection(input, ctx.user.id);
+      await recordAudit({ entity: "section", action: "section.updated", actorUserId: ctx.user.id, actorLabel: ctx.user.name ?? ctx.user.email, summary: `${input.enabled ? "Enabled" : "Disabled"} the ${input.labelEn} section` });
+      return result;
+    }),
+    setUserRole: peopleProcedure.input(workspaceRoleSchema).mutation(async ({ ctx, input }) => {
+      if (input.userId === ctx.user.id) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "You cannot change your own access level. Ask another administrator." });
+      }
+      const result = await updateUserRole(input.userId, input.role);
+      await recordAudit({ entity: "user", entityId: input.userId, action: "people.role_changed", actorUserId: ctx.user.id, actorLabel: ctx.user.name ?? ctx.user.email, summary: `Set access for account ${input.userId} to ${input.role}` });
+      return result;
+    }),
+
+    /* ---- Legacy compatibility ---- */
+    saveCard: contentWriteProcedure.input(workspaceCardSchema).mutation(async ({ ctx, input }) => {
       let imageUrl = input.imageUrl ?? null;
       if (input.imageMode === "link_preview" && input.linkUrl && !imageUrl) {
         const preview = await resolveLinkPreview(input.linkUrl).catch(() => ({ imageUrl: null, title: null }));
@@ -132,7 +222,7 @@ export const appRouter = router({
       }
       return saveWorkspaceCard({ ...input, imageUrl }, ctx.user.id);
     }),
-    saveHoverCard: adminProcedure.input(workspaceHoverCardSchema).mutation(async ({ ctx, input }) => {
+    saveHoverCard: contentWriteProcedure.input(workspaceHoverCardSchema).mutation(async ({ ctx, input }) => {
       let imageUrl = input.imageUrl ?? null;
       if (input.imageMode === "link_preview" && input.linkUrl && !imageUrl) {
         const preview = await resolveLinkPreview(input.linkUrl).catch(() => ({ imageUrl: null, title: null }));
@@ -140,7 +230,7 @@ export const appRouter = router({
       }
       return saveWorkspaceHoverCard({ ...input, imageUrl }, ctx.user.id);
     }),
-    bulkSaveEmployeeHoverCards: adminProcedure.input(workspaceEmployeeBulkSchema).mutation(async ({ ctx, input }) => {
+    bulkSaveEmployeeHoverCards: contentWriteProcedure.input(workspaceEmployeeBulkSchema).mutation(async ({ ctx, input }) => {
       const cards: Array<{ clientId: string; card: Parameters<typeof saveWorkspaceHoverCard>[0] }> = [];
       const failures: Array<{ clientId: string; message: string }> = [];
       for (const inputCard of input.cards) {
@@ -168,8 +258,8 @@ export const appRouter = router({
       }
       return { created: saved.length, cards: saved, failures };
     }),
-    deleteHoverCard: adminProcedure.input(workspaceHoverCardIdSchema).mutation(({ input }) => deleteWorkspaceHoverCard(input.id)),
-    uploadImage: adminProcedure.input(workspaceImageUploadSchema).mutation(async ({ ctx, input }) => {
+    deleteHoverCard: contentWriteProcedure.input(workspaceHoverCardIdSchema).mutation(({ input }) => deleteWorkspaceHoverCard(input.id)),
+    uploadImage: contentWriteProcedure.input(workspaceImageUploadSchema).mutation(async ({ ctx, input }) => {
       const raw = input.base64.replace(/^data:[^;]+;base64,/, "");
       const bytes = Buffer.from(raw, "base64");
       if (bytes.length > 5_000_000) throw new TRPCError({ code: "PAYLOAD_TOO_LARGE", message: "Images must be 5 MB or smaller" });
