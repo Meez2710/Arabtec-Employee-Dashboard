@@ -6,56 +6,84 @@ import { describe, expect, it } from "vitest";
 const projectRoot = resolve(import.meta.dirname, "..");
 const read = (path: string) => readFileSync(resolve(projectRoot, path), "utf8");
 const home = read("client/src/pages/Home.tsx");
-const header = read("client/src/components/briefing/BriefingHeader.tsx");
+const card = read("client/src/components/workspace/WorkspaceCard.tsx");
+const shell = read("client/src/components/workspace/AppShell.tsx");
+const detail = read("client/src/pages/UpdateDetail.tsx");
 const locale = read("client/src/contexts/LocaleContext.tsx");
+const copyDictionary = read("client/src/lib/workspaceCopy.ts");
 const stylesheet = read("client/src/index.css");
 const packageJson = read("package.json");
 
 function allTsxFiles(directory: string): string[] {
-  return readdirSync(directory, { withFileTypes: true }).flatMap(entry => entry.isDirectory() ? allTsxFiles(resolve(directory, entry.name)) : entry.name.endsWith(".tsx") ? [resolve(directory, entry.name)] : []);
+  return readdirSync(directory, { withFileTypes: true }).flatMap(entry =>
+    entry.isDirectory() ? allTsxFiles(resolve(directory, entry.name)) : entry.name.endsWith(".tsx") ? [resolve(directory, entry.name)] : []);
 }
 
 describe("Workspace Phase 4 accessibility and RTL policy", () => {
-  it("delivers managed detail content through a native keyboard and touch accessible disclosure rather than a hover overlay", () => {
-    expect(home).toContain('<details className="dash-card-details">');
-    expect(home).toContain("<summary>{copy.viewDetails}");
-    expect(home).not.toContain("dash-hover-overlay");
-    expect(stylesheet).not.toContain(".dash-hover-overlay");
-    expect(stylesheet).toContain(".dash-card-details summary");
+  it("delivers detail content through a real linked page rather than a hover overlay", () => {
+    // Detail content now has its own shareable route, which is strictly more
+    // accessible than an in-card disclosure: it is a link, it has a URL, and it
+    // works with the keyboard, a screen reader, and the browser's back button.
+    expect(card).toContain('href={`/updates/${item.id}`}');
+    expect(detail).toContain('useRoute("/updates/:id")');
+    for (const source of [home, card, shell, detail, stylesheet]) {
+      expect(source).not.toContain("dash-hover-overlay");
+    }
+    expect(stylesheet).not.toMatch(/:hover[^{]*\{[^}]*(?:display\s*:\s*block|visibility\s*:\s*visible)/);
   });
 
-  it("does not add focus to non-interactive content cards and exposes no dead quick-access controls", () => {
+  it("keeps every interactive surface reachable by Tab with a visible focus ring", () => {
+    expect(stylesheet).toContain(":focus-visible");
+    expect(stylesheet).toContain("outline:2px solid var(--brand)");
+    // Cards are links, not focus-trapped divs with synthetic tab stops.
     expect(home).not.toMatch(/tabIndex=\{0\}/);
-    expect(home).not.toContain("function QuickAccess");
-    expect(header).toContain('<form className="dashboard-search" role="search"');
-    expect(header).toContain("onSearch(draft.trim())");
-    expect(header).not.toMatch(/href="#(?:company|careers|resources)"/);
+    expect(card).not.toMatch(/tabIndex=\{0\}/);
+    expect(shell).toContain('className="ws-skip"');
   });
 
-  it("keeps the native detail disclosure reachable by Tab with visible focus and native Enter/Space activation", () => {
-    expect(home).toContain("<details className=\"dash-card-details\">");
-    expect(home).toContain("<summary>{copy.viewDetails}");
-    expect(stylesheet).toContain("summary:focus-visible");
-    expect(stylesheet).toContain(".dash-card-details summary:focus-visible");
-    expect(home).not.toContain("tabIndex={0}");
+  it("meets the 44px interactive target floor from the design playbook", () => {
+    expect(stylesheet).toContain("min-block-size:44px");
+    // The one smaller control keeps a 44px hit area via its pseudo-element.
+    expect(stylesheet).toContain(".ws-btn--sm::after");
   });
 
-  it("provides a non-empty alternative for every image in the client codebase", () => {
-    const emptyAlternatives = allTsxFiles(resolve(projectRoot, "client/src")).flatMap(file => {
+  it("gives every image either a real description or an explicit decorative marking", () => {
+    const offenders = allTsxFiles(resolve(projectRoot, "client/src")).flatMap(file => {
       const source = readFileSync(file, "utf8");
-      return source.includes('alt=""') ? [file] : [];
+      const images = source.match(/<img\b[^>]*>/g) ?? [];
+      return images.filter(tag => !/\balt=/.test(tag)).map(tag => `${file}: ${tag}`);
     });
-    expect(emptyAlternatives).toEqual([]);
+    expect(offenders).toEqual([]);
+
+    // Content imagery draws its description from the record, never a hardcoded string.
+    expect(card).toContain("alt={localised.imageAlt ?? \"\"}");
+    expect(detail).toContain("alt={localised.imageAlt ?? \"\"}");
+    // And alt text is a publish gate, so a live image can never lack one.
+    expect(read("shared/publishReadiness.ts")).toContain('field: "imageAlt"');
+  });
+
+  it("degrades a broken image instead of leaving a torn layout", () => {
+    expect(card).toContain("onError");
+    expect(detail).toContain("onError");
   });
 
   it("sets persisted document language and direction from the locale switch and applies Arabic typography", () => {
-    expect(locale).toContain('root.lang = locale');
+    expect(locale).toContain("root.lang = locale");
     expect(locale).toContain('root.dir = locale === "ar" ? "rtl" : "ltr"');
     expect(locale).toContain('window.localStorage.setItem("arabtec-workspace-locale", locale)');
-    expect(header).toContain("toggleLocale");
-    expect(home).toContain("const arabic: Copy");
-    expect(stylesheet).toContain(':lang(ar)');
-    expect(stylesheet).toContain('letter-spacing:0!important');
+    expect(shell).toContain("toggleLocale");
+    // Copy lives in one bilingual dictionary rather than per-page literals.
+    expect(copyDictionary).toContain("en:");
+    expect(copyDictionary).toContain("ar:");
+    expect(home).toContain("copy.home");
+    expect(stylesheet).toContain(":lang(ar)");
+    expect(stylesheet).toContain("letter-spacing:0!important");
+  });
+
+  it("pairs Arabic with a real Arabic face rather than forcing a Latin font onto it", () => {
+    expect(stylesheet).toContain('--font-arabic: "IBM Plex Sans Arabic"');
+    expect(read("client/index.html")).toContain("IBM+Plex+Sans+Arabic");
+    expect(stylesheet).not.toContain("Space Grotesk");
   });
 
   it("runs the logical-directionality guard as a build prerequisite and permits no physical left/right properties", () => {

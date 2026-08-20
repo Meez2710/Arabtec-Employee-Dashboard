@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cairoDateKey, cairoOffsetMinutes, cairoStartOfDay, cairoWeekRange, formatCairoDate, isSameCairoDay, isWithinCairoWeek } from "./workspaceTime";
+import { cairoDateKey, cairoOffsetMinutes, cairoStartOfDay, cairoWeekRange, formatCairoDate, isSameCairoDay, isWithinCairoWeek } from "@shared/workspaceTime";
 
 describe("Africa/Cairo business time", () => {
   it("rolls the calendar day at Cairo midnight, not UTC midnight", () => {

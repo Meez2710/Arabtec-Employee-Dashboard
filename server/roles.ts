@@ -1,3 +1,4 @@
+import { workspaceCapabilities, type WorkspaceCapability } from "@shared/workspaceCapabilities";
 import type { userRoles } from "../drizzle/schema";
 
 export type UserRole = typeof userRoles[number];
@@ -12,18 +13,8 @@ export type UserRole = typeof userRoles[number];
  *   publisher — write and publish content
  *   admin     — everything, including people, sections, and settings
  */
-export const workspaceCapabilities = [
-  "console.view",
-  "content.write",
-  "content.publish",
-  "layout.manage",
-  "sections.manage",
-  "people.manage",
-  "settings.manage",
-  "audit.view",
-] as const;
-
-export type WorkspaceCapability = typeof workspaceCapabilities[number];
+export { workspaceCapabilities } from "@shared/workspaceCapabilities";
+export type { WorkspaceCapability } from "@shared/workspaceCapabilities";
 
 const capabilitiesByRole: Record<UserRole, readonly WorkspaceCapability[]> = {
   user: [],

@@ -1,34 +1,54 @@
 import { useEffect, useMemo, useState } from "react";
-import { Archive, CalendarClock, CheckCircle2, Copy, Eye, FilePlus2, History, Languages, Pencil, RotateCcw, Send, ShieldCheck, UploadCloud, X } from "lucide-react";
+import { useRoute } from "wouter";
+import { Languages, Monitor, ShieldCheck, Smartphone, Tablet, X } from "lucide-react";
 import { toast } from "sonner";
 import { startLogin } from "@/const";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useLocale } from "@/contexts/LocaleContext";
-import Home, { type WorkspaceEmployeePreviewItem } from "@/pages/Home";
 import { trpc } from "@/lib/trpc";
+import Home, { type WorkspaceEmployeePreviewItem } from "@/pages/Home";
+import { Kicker, LoadingState } from "@/components/workspace/Primitives";
+import { evaluatePublishReadiness } from "@shared/publishReadiness";
+import type { WorkspaceRole } from "@shared/workspaceCapabilities";
+import { AdminShell } from "./admin/AdminShell";
+import { Overview } from "./admin/Overview";
+import { ContentDesk, type ManagedItem } from "./admin/ContentDesk";
+import { LayoutComposer, type LayoutRow } from "./admin/LayoutComposer";
+import { AuditScreen, MediaScreen, PeopleScreen, SectionsScreen, SettingsScreen, type SectionRow } from "./admin/SimpleSections";
+import { blankDraft, fromDateInput, slotLabel, toDateInput, type ConsoleSection, type EditorDraft, type Status } from "./admin/adminShared";
+import { formatCairoDate } from "@shared/workspaceTime";
+import type { CardSize, ResourceType, Severity, WorkspaceSlot } from "@/lib/workspaceContent";
 
-const slots = ["new_joiner", "company_news", "announcement", "activity", "industry_watch", "opportunity"] as const;
-type Slot = typeof slots[number];
-type Status = "draft" | "in_review" | "approved" | "scheduled" | "published" | "unpublished" | "archived";
-type EditorDraft = { id?: number; slot: Slot; eyebrow: string; title: string; body: string; linkUrl: string; imageUrl: string; imageMode: "none" | "upload" | "link_preview"; sortOrder: number; status: Status; scheduledFor: string; expiresAt: string; reviewBy: string; ownerUserId: number | null };
-
-const blankDraft = (): EditorDraft => ({ slot: "announcement", eyebrow: "", title: "", body: "", linkUrl: "", imageUrl: "", imageMode: "none", sortOrder: 0, status: "draft", scheduledFor: "", expiresAt: "", reviewBy: "", ownerUserId: null });
-const dateInput = (value?: Date | string | null) => value ? new Date(value).toISOString().slice(0, 16) : "";
-const dateLabel = (value?: Date | string | null) => value ? new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : "Not set";
-const slotLabel = (slot: Slot) => slot.replace(/_/g, " ");
+type PreviewWidth = "desktop" | "tablet" | "mobile";
 
 export default function ManageWorkspace() {
   const { user, loading } = useAuth();
   const { locale, setLocale } = useLocale();
-  const isAdmin = user?.role === "admin";
+  const [, params] = useRoute("/admin/:section");
+  const section = (params?.section ?? "overview") as ConsoleSection;
+
   const utils = trpc.useUtils();
-  const { data: items = [], isLoading: itemsLoading } = trpc.workspace.listManagedItems.useQuery(undefined, { enabled: isAdmin });
-  const { data: owners = [] } = trpc.workspace.listOwners.useQuery(undefined, { enabled: isAdmin });
-  const { data: reminderConfiguration } = trpc.workspace.getReminderConfiguration.useQuery(undefined, { enabled: isAdmin });
+  const capabilitiesQuery = trpc.workspace.getCapabilities.useQuery();
+  const capabilities = capabilitiesQuery.data?.capabilities ?? [];
+  const can = (capability: string) => capabilities.includes(capability as never);
+  const hasConsole = can("console.view");
+
+  const overviewQuery = trpc.workspace.getOverview.useQuery(undefined, { enabled: hasConsole });
+  const itemsQuery = trpc.workspace.listManagedItems.useQuery(undefined, { enabled: hasConsole });
+  const ownersQuery = trpc.workspace.listOwners.useQuery(undefined, { enabled: hasConsole });
+  const sectionsQuery = trpc.workspace.listSections.useQuery();
+  const reminderQuery = trpc.workspace.getReminderConfiguration.useQuery(undefined, { enabled: hasConsole });
+  const auditQuery = trpc.workspace.listAuditLog.useQuery(undefined, { enabled: can("audit.view") });
+
   const [draft, setDraft] = useState<EditorDraft | null>(null);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [publishTarget, setPublishTarget] = useState<ManagedItem | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [publishTarget, setPublishTarget] = useState<NonNullable<typeof items>[number] | null>(null);
-  const { data: history = [] } = trpc.workspace.getItemHistory.useQuery({ id: draft?.id ?? 0 }, { enabled: Boolean(isAdmin && draft?.id) });
+  const [previewWidth, setPreviewWidth] = useState<PreviewWidth>("desktop");
+  const [previewRows, setPreviewRows] = useState<LayoutRow[] | null>(null);
+
+  const historyQuery = trpc.workspace.getItemHistory.useQuery({ id: draft?.id ?? 0 }, { enabled: hasConsole && Boolean(draft?.id) });
+
   const save = trpc.workspace.saveItem.useMutation();
   const publish = trpc.workspace.publishItem.useMutation();
   const unpublish = trpc.workspace.unpublishItem.useMutation();
@@ -36,48 +56,300 @@ export default function ManageWorkspace() {
   const restore = trpc.workspace.restoreItem.useMutation();
   const duplicate = trpc.workspace.duplicateItem.useMutation();
   const submit = trpc.workspace.submitItemForReview.useMutation();
-  const approve = trpc.workspace.approveItem.useMutation();
+  const bulk = trpc.workspace.bulkAction.useMutation();
+  const saveLayout = trpc.workspace.saveLayout.useMutation();
+  const saveSection = trpc.workspace.saveSection.useMutation();
+  const setRole = trpc.workspace.setUserRole.useMutation();
 
-  const refresh = async () => { await Promise.all([utils.workspace.listManagedItems.invalidate(), utils.workspace.listCards.invalidate()]); };
-  const toDraft = (item: NonNullable<typeof items>[number]): EditorDraft => ({ id: item.id, slot: item.slot as Slot, eyebrow: item.eyebrow, title: item.title, body: item.body, linkUrl: item.linkUrl ?? "", imageUrl: item.imageUrl ?? "", imageMode: item.imageMode, sortOrder: item.sortOrder, status: item.status as Status, scheduledFor: dateInput(item.scheduledFor), expiresAt: dateInput(item.expiresAt), reviewBy: dateInput(item.reviewBy), ownerUserId: item.ownerUserId });
+  const items = (itemsQuery.data ?? []) as unknown as ManagedItem[];
+  const rawItems = itemsQuery.data ?? [];
 
-  useEffect(() => { if (!draft && items[0]) setDraft(toDraft(items[0])); }, [items, draft]);
+  const refresh = async () => {
+    await Promise.all([
+      utils.workspace.listManagedItems.invalidate(),
+      utils.workspace.listCards.invalidate(),
+      utils.workspace.getOverview.invalidate(),
+      utils.workspace.listAuditLog.invalidate(),
+    ]);
+  };
+
+  const toDraft = (item: (typeof rawItems)[number]): EditorDraft => ({
+    id: item.id,
+    slot: item.slot as WorkspaceSlot,
+    eyebrow: item.eyebrow, title: item.title, body: item.body,
+    eyebrowAr: item.eyebrowAr ?? "", titleAr: item.titleAr ?? "", bodyAr: item.bodyAr ?? "",
+    linkUrl: item.linkUrl ?? "", imageUrl: item.imageUrl ?? "",
+    imageAlt: item.imageAlt ?? "", imageAltAr: item.imageAltAr ?? "",
+    imageMode: item.imageMode,
+    cardSize: item.cardSize as CardSize,
+    severity: item.severity as Severity,
+    requiresAck: item.requiresAck === 1,
+    eventStart: toDateInput(item.eventStart), eventEnd: toDateInput(item.eventEnd),
+    location: item.location ?? "", functionArea: item.functionArea ?? "",
+    closingDate: toDateInput(item.closingDate),
+    sourceName: item.sourceName ?? "", resourceType: (item.resourceType as ResourceType | null) ?? "",
+    sortOrder: item.sortOrder, status: item.status as Status,
+    scheduledFor: toDateInput(item.scheduledFor), expiresAt: toDateInput(item.expiresAt),
+    reviewBy: toDateInput(item.reviewBy), ownerUserId: item.ownerUserId,
+  });
+
+  const openItem = (id: number) => {
+    const item = rawItems.find(entry => entry.id === id);
+    if (item) setDraft(toDraft(item));
+    if (section !== "content") window.history.pushState(null, "", "/admin/content");
+  };
+
+  const readiness = useMemo(() => {
+    if (!draft) return { blockers: [], warnings: [] };
+    return evaluatePublishReadiness({
+      slot: draft.slot,
+      title: draft.title,
+      body: draft.body,
+      titleAr: draft.titleAr,
+      bodyAr: draft.bodyAr,
+      imageUrl: draft.imageUrl || null,
+      imageAlt: draft.imageAlt || null,
+      eventStart: fromDateInput(draft.eventStart),
+      location: draft.location || null,
+      functionArea: draft.functionArea || null,
+      closingDate: fromDateInput(draft.closingDate),
+      sourceName: draft.sourceName || null,
+      resourceType: draft.resourceType || null,
+      scheduledFor: fromDateInput(draft.scheduledFor),
+      expiresAt: fromDateInput(draft.expiresAt),
+    });
+  }, [draft]);
+
+  const runAction = async (label: string, execute: () => Promise<unknown>) => {
+    try {
+      await execute();
+      await refresh();
+      toast.success(label);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "That action could not be completed.");
+    }
+  };
 
   const saveDraft = async () => {
     if (!draft) return;
     if (!draft.eyebrow.trim() || !draft.title.trim()) { toast.error("Add both a label and a title before saving."); return; }
     try {
-      const saved = await save.mutateAsync({ id: draft.id, slot: draft.slot, eyebrow: draft.eyebrow, title: draft.title, body: draft.body, linkUrl: draft.linkUrl || null, imageUrl: draft.imageUrl || null, imageMode: draft.imageMode, sortOrder: draft.sortOrder, active: false, status: draft.status, scheduledFor: draft.scheduledFor ? new Date(draft.scheduledFor) : null, expiresAt: draft.expiresAt ? new Date(draft.expiresAt) : null, reviewBy: draft.reviewBy ? new Date(draft.reviewBy) : null, ownerUserId: draft.ownerUserId });
+      const saved = await save.mutateAsync({
+        id: draft.id, slot: draft.slot, eyebrow: draft.eyebrow, title: draft.title, body: draft.body,
+        eyebrowAr: draft.eyebrowAr || null, titleAr: draft.titleAr || null, bodyAr: draft.bodyAr || null,
+        linkUrl: draft.linkUrl || null, imageUrl: draft.imageUrl || null,
+        imageAlt: draft.imageAlt || null, imageAltAr: draft.imageAltAr || null,
+        imageMode: draft.imageMode, cardSize: draft.cardSize, severity: draft.severity,
+        requiresAck: draft.requiresAck,
+        eventStart: fromDateInput(draft.eventStart), eventEnd: fromDateInput(draft.eventEnd),
+        location: draft.location || null, functionArea: draft.functionArea || null,
+        closingDate: fromDateInput(draft.closingDate),
+        sourceName: draft.sourceName || null, resourceType: draft.resourceType || null,
+        sortOrder: draft.sortOrder, active: false, status: draft.status,
+        scheduledFor: fromDateInput(draft.scheduledFor), expiresAt: fromDateInput(draft.expiresAt),
+        reviewBy: fromDateInput(draft.reviewBy), ownerUserId: draft.ownerUserId,
+      });
       if (!saved) throw new Error("The item could not be saved.");
-      setDraft(toDraft({ ...saved, ownerName: null, ownerEmail: null, reviewOverdue: false }));
-      await refresh(); toast.success("Draft saved. Publishing still needs confirmation.");
-    } catch (error) { toast.error(error instanceof Error ? error.message : "The item could not be saved."); }
+      await refresh();
+      const fresh = (await utils.workspace.listManagedItems.fetch()).find(entry => entry.id === saved.id);
+      if (fresh) setDraft(toDraft(fresh));
+      toast.success("Draft saved. Publishing still needs confirmation.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "The item could not be saved.");
+    }
   };
-  const runAction = async (label: string, execute: () => Promise<unknown>) => { try { await execute(); await refresh(); toast.success(label); } catch (error) { toast.error(error instanceof Error ? error.message : "That action could not be completed."); } };
 
+  /** Preview always renders the real employee page, never a mock of it. */
   const previewItems = useMemo<WorkspaceEmployeePreviewItem[]>(() => {
-    const published = items.filter(item => item.status === "published" && item.id !== draft?.id).map(item => ({ slot: item.slot as Slot, eyebrow: item.eyebrow, title: item.title, body: item.body, linkUrl: item.linkUrl, imageUrl: item.imageUrl, createdAt: item.createdAt }));
-    if (!draft?.title.trim()) return published;
-    return [...published, { slot: draft.slot, eyebrow: draft.eyebrow || "Preview", title: draft.title, body: draft.body, linkUrl: draft.linkUrl || null, imageUrl: draft.imageUrl || null, createdAt: new Date() }];
-  }, [items, draft]);
+    const layoutById = new Map((previewRows ?? []).map((row, index) => [row.id, { cardSize: row.cardSize, sortOrder: index }]));
+    const published = rawItems
+      .filter(item => item.status === "published" && item.id !== draft?.id)
+      .map(item => ({ ...item, ...(layoutById.get(item.id) ?? {}) }));
+    if (!draft?.title.trim()) return published as unknown as WorkspaceEmployeePreviewItem[];
+    const preview = {
+      ...draft,
+      id: draft.id ?? -1,
+      eyebrow: draft.eyebrow || "Preview",
+      requiresAck: draft.requiresAck ? 1 : 0,
+      eventStart: fromDateInput(draft.eventStart),
+      closingDate: fromDateInput(draft.closingDate),
+      linkUrl: draft.linkUrl || null, imageUrl: draft.imageUrl || null,
+      imageAlt: draft.imageAlt || null, imageAltAr: draft.imageAltAr || null,
+      titleAr: draft.titleAr || null, bodyAr: draft.bodyAr || null, eyebrowAr: draft.eyebrowAr || null,
+      resourceType: draft.resourceType || null,
+      location: draft.location || null, functionArea: draft.functionArea || null, sourceName: draft.sourceName || null,
+      createdAt: new Date(), publishedAt: new Date(), updatedAt: new Date(),
+    };
+    return [...published, preview] as unknown as WorkspaceEmployeePreviewItem[];
+  }, [rawItems, draft, previewRows]);
 
-  if (loading) return <main className="manage-page"><p>Loading Workspace administration…</p></main>;
-  if (!user) return <LoginState title="Sign in to open the Workspace console." detail="Publishing, scheduling, and content history are available only to authorised Workspace administrators." action />;
-  if (!isAdmin) return <LoginState title="Administrator access is required." detail={`You are signed in as ${user.role}. Ask a Workspace administrator to grant publishing access.`} />;
+  const layoutRows = useMemo<LayoutRow[]>(
+    () => rawItems
+      .filter(item => item.status === "published" || item.status === "scheduled")
+      .slice()
+      .sort((a, b) => a.sortOrder - b.sortOrder || b.updatedAt.getTime() - a.updatedAt.getTime())
+      .map(item => ({ id: item.id, title: item.title, slot: item.slot, cardSize: item.cardSize as CardSize })),
+    [rawItems],
+  );
 
-  return <><main className="console-page"><section className="console-shell"><header className="console-header"><div><p className="dash-eyebrow">Workspace publishing console</p><h1>Plan, publish, and maintain employee updates.</h1><p>Every action is reversible. Drafts stay private until an administrator confirms publication.</p></div><button type="button" className="dash-red-button" onClick={() => setDraft(blankDraft())}><FilePlus2 size={17} /> New item</button></header>
-    <section className="console-reminder-settings" aria-label="Review reminder email configuration"><div><p className="dash-eyebrow">Review reminders</p><h2>Owner email delivery</h2><p>Overdue review dates are flagged in the list. Email delivery activates only when an approved sender is configured.</p></div><label>Reminder sender<input value={reminderConfiguration?.emailConfigured ? reminderConfiguration.sender || "Configured sender" : "Not configured — add sender credentials later"} readOnly aria-describedby="reminder-configuration-help" /></label><p id="reminder-configuration-help">{reminderConfiguration?.emailConfigured ? "The scheduled reminder run will email assigned owners once per overdue review." : "This field is reserved for your approved sender. The console remains safe and flags overdue items until it is connected."}</p></section>
-    <section className="console-list-section" aria-label="Workspace content items"><div className="console-section-heading"><div><p className="dash-eyebrow">All content</p><h2>{itemsLoading ? "Loading items…" : `${items.length} item${items.length === 1 ? "" : "s"}`}</h2></div><p>Review dates are highlighted when content needs attention.</p></div><div className="console-table-wrap"><table className="console-table"><thead><tr><th>Item</th><th>Status</th><th>Go live</th><th>Owner</th><th>Review</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>{items.length === 0 ? <tr><td colSpan={6} className="console-empty-row">No content items yet. Select <strong>New item</strong> to create the first employee update.</td></tr> : items.map(item => <tr key={item.id} className={draft?.id === item.id ? "is-selected" : ""}><td><button type="button" className="console-item-button" onClick={() => setDraft(toDraft(item))}><strong>{item.title}</strong><span>{slotLabel(item.slot as Slot)}</span></button></td><td><span className={`console-status console-status--${item.status}`}>{item.status.replace("_", " ")}</span></td><td>{item.status === "scheduled" ? dateLabel(item.scheduledFor) : item.publishedAt ? dateLabel(item.publishedAt) : "Not live"}</td><td>{item.ownerName || item.ownerEmail || "Unassigned"}</td><td><span className={item.reviewOverdue ? "console-overdue" : ""}>{item.reviewOverdue ? "Review overdue" : dateLabel(item.reviewBy)}</span></td><td><div className="console-row-actions">{item.status !== "archived" && item.status !== "published" && <button type="button" onClick={() => setPublishTarget(item)}>Publish</button>}{["published", "scheduled"].includes(item.status) && <button type="button" onClick={() => runAction("Item unpublished", () => unpublish.mutateAsync({ id: item.id }))}>Unpublish</button>}{item.status === "archived" ? <button type="button" onClick={() => runAction("Item restored as a draft", () => restore.mutateAsync({ id: item.id }))}><RotateCcw size={14} /> Restore</button> : <button type="button" onClick={() => runAction("Item archived", () => archive.mutateAsync({ id: item.id }))}><Archive size={14} /> Archive</button>}<button type="button" onClick={() => runAction("Draft copy created", () => duplicate.mutateAsync({ id: item.id }))}><Copy size={14} /> Duplicate</button></div></td></tr>)}</tbody></table></div></section>
-    <section className="console-workspace">{draft ? <><section className="console-editor"><div className="console-section-heading"><div><p className="dash-eyebrow">{draft.id ? "Edit item" : "New draft"}</p><h2>{draft.title || "Untitled item"}</h2></div>{draft.id && <span className={`console-status console-status--${draft.status}`}>{draft.status.replace("_", " ")}</span>}</div><div className="console-form-grid"><label>Dashboard section<select value={draft.slot} onChange={event => setDraft(value => value ? { ...value, slot: event.target.value as Slot } : value)}>{slots.map(slot => <option value={slot} key={slot}>{slotLabel(slot)}</option>)}</select></label><label>Owner<select value={draft.ownerUserId ?? ""} onChange={event => setDraft(value => value ? { ...value, ownerUserId: event.target.value ? Number(event.target.value) : null } : value)}><option value="">Assign to me when saved</option>{owners.map(owner => <option value={owner.id} key={owner.id}>{owner.name || owner.email || `Account ${owner.id}`}</option>)}</select></label><label>Label<input value={draft.eyebrow} onChange={event => setDraft(value => value ? { ...value, eyebrow: event.target.value } : value)} placeholder="For example: People and culture" /></label><label>Title<input value={draft.title} onChange={event => setDraft(value => value ? { ...value, title: event.target.value } : value)} placeholder="Clear employee-facing headline" /></label><label className="console-full-field">Employee message<textarea value={draft.body} onChange={event => setDraft(value => value ? { ...value, body: event.target.value } : value)} placeholder="What employees need to know" /></label><label className="console-full-field">External destination (optional)<input type="url" value={draft.linkUrl} onChange={event => setDraft(value => value ? { ...value, linkUrl: event.target.value, imageMode: event.target.value ? "link_preview" : value.imageMode } : value)} placeholder="https://…" /></label><label>Go live at (optional)<input type="datetime-local" value={draft.scheduledFor} onChange={event => setDraft(value => value ? { ...value, scheduledFor: event.target.value } : value)} /></label><label>Expire at (optional)<input type="datetime-local" value={draft.expiresAt} onChange={event => setDraft(value => value ? { ...value, expiresAt: event.target.value } : value)} /></label><label>Review by (optional)<input type="datetime-local" value={draft.reviewBy} onChange={event => setDraft(value => value ? { ...value, reviewBy: event.target.value } : value)} /></label></div><div className="console-editor-actions"><button type="button" className="dash-red-button" onClick={saveDraft} disabled={save.isPending}><UploadCloud size={16} /> {save.isPending ? "Saving…" : "Save draft"}</button>{draft.id && <><button type="button" onClick={() => setPreviewOpen(true)}><Eye size={16} /> Preview as employee</button>{draft.status === "draft" && <button type="button" onClick={() => runAction("Item submitted for review", () => submit.mutateAsync({ id: draft.id! }))}><Send size={16} /> Send for review</button>}{draft.status === "in_review" && <button type="button" onClick={() => runAction("Item approved", () => approve.mutateAsync({ id: draft.id! }))}><CheckCircle2 size={16} /> Approve</button>}<button type="button" onClick={() => { const item = items.find(value => value.id === draft.id); if (item) setPublishTarget(item); }}><CalendarClock size={16} /> Publish…</button></>}</div></section><HistoryPanel history={history} /></> : <section className="console-empty-editor"><Pencil /><h2>Select an item or start a new one.</h2><p>The list shows what is live, scheduled, under review, or archived. Nothing appears to employees until you confirm publication.</p></section>}</section></section></main>
-    {publishTarget && <PublishConfirmation item={publishTarget} onCancel={() => setPublishTarget(null)} onConfirm={() => runAction(publishTarget.scheduledFor && new Date(publishTarget.scheduledFor) > new Date() ? "Item scheduled" : "Item published", async () => { await publish.mutateAsync({ id: publishTarget.id, confirmed: true }); setPublishTarget(null); })} busy={publish.isPending} />}
-    {previewOpen && <section className="console-preview-layer" role="dialog" aria-modal="true" aria-label="Employee dashboard preview"><div className="console-preview-bar"><div><strong>Employee preview</strong><span>The current draft is applied to the actual dashboard layout.</span></div><div><button type="button" onClick={() => setLocale(locale === "en" ? "ar" : "en")}><Languages size={16} /> {locale === "en" ? "عرض بالعربية" : "View in English"}</button><button type="button" onClick={() => setPreviewOpen(false)}><X size={16} /> Close preview</button></div></div><div className="console-preview-canvas"><Home previewItems={previewItems} /></div></section>}
-  </>;
+  const mediaRows = useMemo(
+    () => rawItems.filter(item => Boolean(item.imageUrl)).map(item => ({ id: item.id, title: item.title, imageUrl: item.imageUrl as string, imageAlt: item.imageAlt, slot: item.slot })),
+    [rawItems],
+  );
+
+  const sectionRows = useMemo<SectionRow[]>(
+    () => (sectionsQuery.data ?? []).map(row => ({ ...row, slot: row.slot as WorkspaceSlot, defaultSize: row.defaultSize as CardSize })),
+    [sectionsQuery.data],
+  );
+
+  const attentionCount = useMemo(() => {
+    const attention = overviewQuery.data?.needsAttention;
+    if (!attention) return 0;
+    return attention.reviewOverdue.length + attention.goingLiveToday.length + attention.expiringThisWeek.length
+      + attention.expiredStillLive.length + attention.missingArabic.length + attention.missingImageAlt.length;
+  }, [overviewQuery.data]);
+
+  useEffect(() => { setSelectedIds([]); }, [section]);
+
+  if (loading || capabilitiesQuery.isLoading) return <main className="adm__login"><LoadingState /></main>;
+  if (!user) return <AccessPanel title="Sign in to open the Workspace console." detail="Publishing, scheduling, and content history are available only to authorised Workspace users." action />;
+  if (!hasConsole) return <AccessPanel title="Console access is required." detail={`You are signed in as ${user.role}. Ask a Workspace administrator to grant access.`} />;
+
+  return (
+    <>
+      <AdminShell section={section} capabilities={capabilities} user={user} attentionCount={attentionCount}>
+        {section === "overview" && (overviewQuery.data
+          ? <Overview data={overviewQuery.data as never} onOpenItem={openItem} />
+          : <LoadingState />)}
+
+        {section === "content" && (
+          <ContentDesk
+            items={items}
+            loading={itemsQuery.isLoading}
+            draft={draft}
+            owners={ownersQuery.data ?? []}
+            history={historyQuery.data ?? []}
+            blockers={readiness.blockers}
+            warnings={readiness.warnings}
+            canWrite={can("content.write")}
+            canPublish={can("content.publish")}
+            saving={save.isPending}
+            selectedIds={selectedIds}
+            onSelectItem={openItem}
+            onToggleSelect={id => setSelectedIds(current => current.includes(id) ? current.filter(value => value !== id) : [...current, id])}
+            onDraftChange={setDraft}
+            onNew={() => setDraft(blankDraft())}
+            onSave={saveDraft}
+            onPublish={id => { const item = items.find(entry => entry.id === id); if (item) setPublishTarget(item); }}
+            onAction={(id, action) => {
+              const label = { unpublish: "Item unpublished", archive: "Item archived", restore: "Item restored as a draft", duplicate: "Draft copy created", submit: "Item submitted for review" }[action];
+              const run = { unpublish, archive, restore, duplicate, submit }[action];
+              if (action === "archive" && !window.confirm("Archive this item? It stops appearing for employees and can be restored later.")) return;
+              void runAction(label, () => run.mutateAsync({ id }));
+            }}
+            onBulk={action => {
+              if (!window.confirm(`${action === "archive" ? "Archive" : "Unpublish"} ${selectedIds.length} item(s)?`)) return;
+              void runAction("Bulk action applied", async () => { await bulk.mutateAsync({ ids: selectedIds, action }); setSelectedIds([]); });
+            }}
+            onPreview={() => { setPreviewRows(null); setPreviewOpen(true); }}
+          />
+        )}
+
+        {section === "layout" && (
+          <LayoutComposer
+            rows={layoutRows}
+            saving={saveLayout.isPending}
+            onSave={rows => void runAction("Layout saved", () => saveLayout.mutateAsync({ items: rows.map((row, index) => ({ id: row.id, sortOrder: index, cardSize: row.cardSize })) }))}
+            renderPreview={rows => (
+              <button type="button" className="ws-btn ws-btn--block" onClick={() => { setPreviewRows(rows); setPreviewOpen(true); }}>
+                Preview as employee
+              </button>
+            )}
+          />
+        )}
+
+        {section === "media" && <MediaScreen rows={mediaRows} onOpenItem={openItem} />}
+        {section === "sections" && <SectionsScreen rows={sectionRows} saving={saveSection.isPending} onSave={row => void runAction("Section saved", async () => { await saveSection.mutateAsync(row); await utils.workspace.listSections.invalidate(); })} />}
+        {section === "people" && <PeopleScreen rows={ownersQuery.data ?? []} currentUserId={user.id} saving={setRole.isPending} onSetRole={(userId, role) => void runAction("Access updated", async () => { await setRole.mutateAsync({ userId, role: role as WorkspaceRole }); await utils.workspace.listOwners.invalidate(); })} />}
+        {section === "audit" && <AuditScreen rows={(auditQuery.data ?? []) as never} />}
+        {section === "settings" && <SettingsScreen reminder={reminderQuery.data} />}
+      </AdminShell>
+
+      {publishTarget && (
+        <PublishConfirmation
+          item={publishTarget}
+          onCancel={() => setPublishTarget(null)}
+          onConfirm={() => void runAction(
+            publishTarget.scheduledFor && new Date(publishTarget.scheduledFor) > new Date() ? "Item scheduled" : "Item published",
+            async () => { await publish.mutateAsync({ id: publishTarget.id, confirmed: true }); setPublishTarget(null); },
+          )}
+          busy={publish.isPending}
+        />
+      )}
+
+      {previewOpen && (
+        <section className="adm__preview-layer" role="dialog" aria-modal="true" aria-label="Employee preview">
+          <div className="adm__preview-bar">
+            <div>
+              <strong>Employee preview</strong>
+              <span className="ws-meta"> This is the real employee page.</span>
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)" }}>
+              <button type="button" className={`ws-btn ws-btn--sm${previewWidth === "desktop" ? " is-active" : ""}`} onClick={() => setPreviewWidth("desktop")}><Monitor size={14} aria-hidden="true" /> Desktop</button>
+              <button type="button" className={`ws-btn ws-btn--sm${previewWidth === "tablet" ? " is-active" : ""}`} onClick={() => setPreviewWidth("tablet")}><Tablet size={14} aria-hidden="true" /> Tablet</button>
+              <button type="button" className={`ws-btn ws-btn--sm${previewWidth === "mobile" ? " is-active" : ""}`} onClick={() => setPreviewWidth("mobile")}><Smartphone size={14} aria-hidden="true" /> Mobile</button>
+              <button type="button" className="ws-btn ws-btn--sm" onClick={() => setLocale(locale === "en" ? "ar" : "en")}><Languages size={14} aria-hidden="true" /> {locale === "en" ? "عرض بالعربية" : "View in English"}</button>
+              <button type="button" className="ws-btn ws-btn--sm" onClick={() => setPreviewOpen(false)}><X size={14} aria-hidden="true" /> Close</button>
+            </div>
+          </div>
+          <div className="adm__preview-frame" data-width={previewWidth}>
+            <Home previewItems={previewItems} />
+          </div>
+        </section>
+      )}
+    </>
+  );
 }
 
-function PublishConfirmation({ item, onCancel, onConfirm, busy }: { item: { id: number; slot: string; title: string; scheduledFor: Date | null; expiresAt: Date | null; ownerName: string | null; ownerEmail: string | null }; onCancel: () => void; onConfirm: () => void; busy: boolean }) {
+function PublishConfirmation({ item, onCancel, onConfirm, busy }: { item: ManagedItem; onCancel: () => void; onConfirm: () => void; busy: boolean }) {
   const scheduled = Boolean(item.scheduledFor && new Date(item.scheduledFor) > new Date());
-  return <section className="console-confirm-layer" role="dialog" aria-modal="true" aria-labelledby="publish-confirmation-title"><div className="console-confirm-panel"><p className="dash-eyebrow">Confirm publication</p><h2 id="publish-confirmation-title">Ready to {scheduled ? "schedule" : "publish"} “{item.title}”?</h2><p>This is the final confirmation. Employees will see the item exactly as it appears in the employee preview.</p><dl><div><dt>Section</dt><dd>{slotLabel(item.slot as Slot)}</dd></div><div><dt>Go live</dt><dd>{scheduled ? dateLabel(item.scheduledFor) : "Immediately after confirmation"}</dd></div><div><dt>Expires</dt><dd>{dateLabel(item.expiresAt)}</dd></div><div><dt>Owner</dt><dd>{item.ownerName || item.ownerEmail || "You will be recorded as owner"}</dd></div></dl><div className="console-confirm-actions"><button type="button" onClick={onCancel}>Keep editing</button><button type="button" className="dash-red-button" onClick={onConfirm} disabled={busy}>{busy ? "Confirming…" : scheduled ? "Confirm schedule" : "Confirm and publish"}</button></div></div></section>;
+  const when = (value?: Date | null) => (value ? formatCairoDate(value, "en", { dateStyle: "medium", timeStyle: "short" }) : "Not set");
+  const missingArabic = !item.titleAr?.trim() || !item.bodyAr?.trim();
+  return (
+    <div className="ws-scrim" role="dialog" aria-modal="true" aria-labelledby="publish-confirmation-title">
+      <div className="ws-modal">
+        <Kicker>Confirm publication</Kicker>
+        <h2 id="publish-confirmation-title">Ready to {scheduled ? "schedule" : "publish"} &ldquo;{item.title}&rdquo;?</h2>
+        <p className="ws-lede">Employees see the item exactly as it appears in the employee preview.</p>
+        <dl>
+          <div><dt>Audience</dt><dd>All Arabtec employees</dd></div>
+          <div><dt>Section</dt><dd>{slotLabel(item.slot)}</dd></div>
+          <div><dt>Go live</dt><dd>{scheduled ? `${when(item.scheduledFor)} (Cairo)` : "Immediately after confirmation"}</dd></div>
+          <div><dt>Expires</dt><dd>{when(item.expiresAt)}</dd></div>
+          <div><dt>Owner</dt><dd>{item.ownerName || item.ownerEmail || "You will be recorded as owner"}</dd></div>
+        </dl>
+        {missingArabic && <p className="ws-modal__warn">No Arabic version. Arabic readers will see the English text.</p>}
+        <div className="ws-modal__actions">
+          <button type="button" className="ws-btn" onClick={onCancel}>Keep editing</button>
+          <button type="button" className="ws-btn ws-btn--primary" onClick={onConfirm} disabled={busy}>
+            {busy ? "Confirming…" : scheduled ? "Confirm schedule" : "Confirm and publish"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
-function HistoryPanel({ history }: { history: Array<{ id: number; action: string; fromStatus: string | null; toStatus: string | null; note: string | null; createdAt: Date; actorName: string | null; actorEmail: string | null }> }) { return <aside className="console-history"><div className="console-section-heading"><div><p className="dash-eyebrow">Item history</p><h2><History size={17} /> Activity</h2></div></div>{history.length ? <ol>{history.map(entry => <li key={entry.id}><strong>{entry.action.replace("_", " ")}</strong><span>{entry.actorName || entry.actorEmail || "System"} · {dateLabel(entry.createdAt)}</span>{entry.note && <p>{entry.note}</p>}</li>)}</ol> : <p>No recorded changes yet.</p>}</aside>; }
-function LoginState({ title, detail, action = false }: { title: string; detail: string; action?: boolean }) { return <main className="manage-page"><section className="manage-login"><ShieldCheck className="text-signal" /><p className="dash-eyebrow">Workspace administration</p><h1>{title}</h1><p>{detail}</p>{action && <button type="button" onClick={() => startLogin()} className="dash-red-button">Sign in</button>}</section></main>; }
+function AccessPanel({ title, detail, action = false }: { title: string; detail: string; action?: boolean }) {
+  return (
+    <main className="adm__login">
+      <section className="adm__login-panel">
+        <ShieldCheck size={32} aria-hidden="true" color="var(--brand)" />
+        <Kicker>Workspace console</Kicker>
+        <h1>{title}</h1>
+        <p>{detail}</p>
+        {action && <button type="button" onClick={() => startLogin()} className="ws-btn ws-btn--primary">Sign in</button>}
+      </section>
+    </main>
+  );
+}
