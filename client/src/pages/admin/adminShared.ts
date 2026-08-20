@@ -59,8 +59,13 @@ export function toDateInput(value?: Date | string | null): string {
   return `${read("year")}-${read("month")}-${read("day")}T${String(Number(read("hour")) % 24).padStart(2, "0")}:${read("minute")}`;
 }
 
+/** Matches exactly what a `datetime-local` control produces. */
+const dateInputPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
+
 export function fromDateInput(value: string): Date | null {
-  if (!value) return null;
+  // Date parsing is lenient enough to turn junk into a real instant, so the
+  // shape is checked before it is trusted.
+  if (!value || !dateInputPattern.test(value)) return null;
   // Interpret the entered wall clock as Cairo time by probing the offset at that instant.
   const naive = new Date(`${value}:00Z`);
   if (Number.isNaN(naive.getTime())) return null;
