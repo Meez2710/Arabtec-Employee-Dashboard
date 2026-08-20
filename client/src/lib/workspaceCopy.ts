@@ -35,6 +35,8 @@ export const copy = {
     apply: { en: "Register interest", ar: "تسجيل الاهتمام" },
     signIn: { en: "Sign in", ar: "تسجيل الدخول" },
     retry: { en: "Try again", ar: "إعادة المحاولة" },
+    previous: { en: "Previous", ar: "السابق" },
+    next: { en: "Next", ar: "التالي" },
   },
 
   home: {
@@ -103,6 +105,10 @@ export const copy = {
     default: { en: "Nothing published here yet.", ar: "لا يوجد محتوى منشور هنا بعد." },
     search: { en: "No update matches that search.", ar: "لا يوجد تحديث يطابق هذا البحث." },
     adminHint: { en: "Publish from the Workspace console to fill this section.", ar: "انشر من وحدة التحكم لملء هذا القسم." },
+  },
+
+  counter: {
+    position: { en: "Showing item", ar: "عرض العنصر" },
   },
 
   states: {

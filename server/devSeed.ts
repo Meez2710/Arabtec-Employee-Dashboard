@@ -95,6 +95,26 @@ export function devSeedCards(): Card[] {
       titleAr: "مهندس تقدير تكاليف رئيسي", bodyAr: "متاحة لموظفي أرابتك ممن لديهم خمس سنوات خبرة في التقدير.",
     },
     {
+      ...base, id: 9012, slot: "new_joiner", sortOrder: 5,
+      eyebrow: "Commercial", title: "Quantity Surveyor", functionArea: "Commercial", functionAreaAr: "التجاري",
+      eventStart: daysFromNow(-5), body: "Joining the cost management team at head office.",
+      titleAr: "مساح كميات", bodyAr: "ينضم إلى فريق إدارة التكاليف في المقر الرئيسي.",
+    },
+    {
+      ...base, id: 9013, slot: "new_joiner", sortOrder: 5,
+      eyebrow: "HSE", title: "Safety Officer", functionArea: "HSE", functionAreaAr: "الصحة والسلامة",
+      eventStart: daysFromNow(-1), body: "Joining the New Capital site HSE team.",
+      titleAr: "مسؤول سلامة", bodyAr: "ينضم إلى فريق الصحة والسلامة في موقع العاصمة الإدارية.",
+    },
+    {
+      ...base, id: 9014, slot: "company_news", sortOrder: 4, cardSize: "2x1",
+      eyebrow: "Company news", title: "Second cooling plant handed over ahead of schedule",
+      body: "The MEP team completed commissioning three weeks early, releasing the crew to the next package.",
+      titleAr: "تسليم محطة التبريد الثانية قبل الموعد",
+      bodyAr: "أنهى فريق الأعمال الكهروميكانيكية التشغيل التجريبي قبل ثلاثة أسابيع من الموعد.",
+      publishedAt: hoursFromNow(-80),
+    },
+    {
       ...base, id: 9010, slot: "resource", sortOrder: 9,
       eyebrow: "People and Culture", title: "Annual leave policy", resourceType: "policy",
       sourceName: "People and Culture", sourceNameAr: "الموارد البشرية والثقافة", body: "Entitlement, carry-over rules, and how to request leave.",

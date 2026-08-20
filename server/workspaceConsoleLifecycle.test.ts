@@ -9,7 +9,10 @@ const app = read("client/src/App.tsx");
 // The console is a multi-screen control plane now, so policy is checked across
 // the whole console surface rather than one page file.
 const consoleFiles = ["client/src/pages/ManageWorkspace.tsx", ...readdirSync(resolve(root, "client/src/pages/admin")).map(name => `client/src/pages/admin/${name}`)];
-const consolePage = consoleFiles.map(read).join("\n");
+// Console copy lives in the bilingual dictionary, so policy is checked across
+// the console components and the dictionary that supplies their strings.
+const consoleCopy = read("client/src/lib/consoleCopy.ts");
+const consolePage = [...consoleFiles.map(read), consoleCopy].join("\n");
 const router = read("server/routers.ts");
 const schemas = read("server/workspaceSchemas.ts");
 const db = read("server/db.ts");
@@ -68,8 +71,8 @@ describe("Workspace administrator console lifecycle", () => {
 
   it("lets the home be rearranged with buttons and the keyboard, not a hidden press-and-hold", () => {
     const composer = read("client/src/pages/admin/LayoutComposer.tsx");
-    expect(composer).toContain("Move ${row.title} earlier");
-    expect(composer).toContain("Move ${row.title} later");
+    expect(composer).toContain("c.layout.moveEarlier(row.title)");
+    expect(composer).toContain("c.layout.moveLater(row.title)");
     expect(composer).toContain("draggable");
     // A 2-second hold as the only way to move a card is not an affordance.
     expect(composer).not.toMatch(/setTimeout\([^)]*2000/);
@@ -79,6 +82,48 @@ describe("Workspace administrator console lifecycle", () => {
     expect(consolePage).toContain('data-width={previewWidth}');
     for (const control of ["Desktop", "Tablet", "Mobile"]) expect(consolePage).toContain(control);
     expect(consolePage).toContain("عرض بالعربية");
+  });
+
+  it("speaks Arabic throughout the console, not only on the employee side", () => {
+    // Every console string is a bilingual pair, so a screen cannot ship
+    // half-translated.
+    const pairs = [...consoleCopy.matchAll(/t\(\s*"((?:[^"\\]|\\.)*)"\s*,\s*"((?:[^"\\]|\\.)*)"\s*\)/g)];
+    expect(pairs.length).toBeGreaterThan(150);
+    const arabic = /[\u0600-\u06FF]/;
+    const untranslated = pairs
+      // A language switcher deliberately names the other language, so its
+      // English side is already Arabic and its Arabic side is "English".
+      .filter(([, en, ar]) => en.trim() && !arabic.test(en) && !arabic.test(ar) && en !== ar)
+      .map(([, en]) => en);
+    expect(untranslated).toEqual([]);
+    // And the console is no longer pinned to one direction.
+    expect(read("client/src/pages/admin/AdminShell.tsx")).not.toContain('dir="ltr"');
+    expect(read("client/src/pages/ManageWorkspace.tsx")).not.toContain('dir="ltr"');
+  });
+
+  it("offers a real image upload, not only a URL field", () => {
+    const desk = read("client/src/pages/admin/ContentDesk.tsx");
+    expect(desk).toContain('type="file"');
+    expect(desk).toContain('accept="image/jpeg,image/png,image/webp"');
+    // Validated in the browser before the bytes ever leave it.
+    expect(desk).toContain("file.size > 5_000_000");
+    expect(desk).toContain("onUploadImage");
+    // And wired to the storage mutation that already existed server-side.
+    expect(read("client/src/pages/ManageWorkspace.tsx")).toContain("trpc.workspace.uploadImage.useMutation()");
+    expect(router).toContain("uploadImage: contentWriteProcedure");
+  });
+
+  it("holds several items in one section card and moves between them accessibly", () => {
+    const card = read("client/src/components/workspace/WorkspaceCard.tsx");
+    expect(card).toContain("entries: WorkspaceItem[]");
+    // Position is announced, not just drawn.
+    expect(card).toContain('aria-live="polite"');
+    expect(card).toContain("copy.actions.previous[locale]");
+    expect(card).toContain("copy.actions.next[locale]");
+    // Wraps rather than dead-ending at either edge.
+    expect(card).toContain("(current + step + total) % total");
+    const stylesheet = read("client/src/index.css");
+    expect(stylesheet).toContain("@keyframes ws-card-enter");
   });
 
   it("blocks publication until the section template, alt text, and schedule are valid", () => {
@@ -92,8 +137,8 @@ describe("Workspace administrator console lifecycle", () => {
   });
 
   it("confirms destructive and bulk actions before running them", () => {
-    expect(consolePage).toContain("window.confirm(\"Archive this item?");
-    expect(consolePage).toMatch(/window\.confirm\(`\$\{action === "archive" \? "Archive" : "Unpublish"\}/);
+    expect(consolePage).toContain("window.confirm(c.confirm.archiveItem)");
+    expect(consolePage).toContain("window.confirm(c.confirm.bulk(action, selectedIds.length))");
   });
 
   it("records publish-grade actions in a global audit log", () => {

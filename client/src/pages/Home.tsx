@@ -58,6 +58,21 @@ export default function Home({ previewItems }: { previewItems?: WorkspaceEmploye
     [gridItems, enabledSections],
   );
 
+  /**
+   * One card per section, holding every published item in it. The previous
+   * build reduced each section to a single item, so a second announcement
+   * silently replaced the first.
+   */
+  const cards = useMemo(() => {
+    const bySlot = new Map<WorkspaceSlot, WorkspaceItem[]>();
+    for (const item of gridBySection) {
+      const existing = bySlot.get(item.slot);
+      if (existing) existing.push(item);
+      else bySlot.set(item.slot, [item]);
+    }
+    return Array.from(bySlot, ([slot, entries]) => ({ slot, entries }));
+  }, [gridBySection]);
+
   const acknowledgedIds = acknowledgedQuery.data ?? [];
   const greeting = formatCairoGreeting(locale);
 
@@ -109,10 +124,10 @@ export default function Home({ previewItems }: { previewItems?: WorkspaceEmploye
 
               {weekItems.length > 0 && <WeekStrip items={weekItems} />}
 
-              {gridBySection.length > 0 && (
+              {cards.length > 0 && (
                 <section className="ws-section" aria-label={sectionLabel("company_news", locale)}>
                   <div className="ws-grid">
-                    {gridBySection.map(item => <WorkspaceCard key={item.id} item={item} showSection />)}
+                    {cards.map(card => <WorkspaceCard key={card.slot} entries={card.entries} showSection />)}
                   </div>
                 </section>
               )}

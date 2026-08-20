@@ -144,7 +144,8 @@ glassmorphism, no coloured shadows.
 
 ## 4. Grid and layout
 
-- **Max width 1280px**, page padding 24px desktop / 16px mobile.
+- **Max width 1760px**, page padding 32px desktop / 16px mobile. Long-form blocks (article body,
+  priority notice) stay capped at `72ch` so a wide shell never produces unreadable line lengths.
 - Employee card grid: **12-column** conceptually, expressed as a 4-track CSS grid.
   - ≥ 1280px → 4 columns · 1024–1279 → 3 · 768–1023 → 2 · < 768 → 1
 
@@ -179,7 +180,7 @@ anything.
 | Component | Specification |
 |---|---|
 | **Button** | Height 44px (40px for `sm` in dense admin tables, still 44px hit area via padding). Radius 8px. Primary = brand fill, white text. Secondary = white fill, `--line` border, ink text. Ghost = transparent, ink text. Danger = `--danger` fill. Icon + label, 8px gap. |
-| **Card** | White, radius 14px, 1px `--line`, `--shadow-card`, 24px padding. Optional red-rule kicker at top. Media well is full-bleed to the card edge with 16:9 ratio, radius clipped to the card's top corners. |
+| **Card** | White, radius 14px, 1px `--line`, `--shadow-card`, 24px padding. Optional red-rule kicker at top. Media well is full-bleed to the card edge with 16:9 ratio, radius clipped to the card's top corners. A card holding several entries gains a pager — previous/next, dots, and an `n / total` counter — and cross-fades between them in `--dur`. Card height is driven by the tallest entry so moving between them never shifts the grid. |
 | **Badge** | 12px uppercase, `.06em`, radius 8px, 1px border, transparent fill, coloured ink. One per status. |
 | **EmptyState** | One line of 14px `--muted` text, optional single action. **One shared component** — never eight variants of the same sentence. |
 | **DataTable** | `--surface-sunken` header, 12px uppercase tracked labels, 1px `--line-soft` row rules, no zebra striping. Below 768px each row becomes a stacked card with visible labels — columns are never hidden. |

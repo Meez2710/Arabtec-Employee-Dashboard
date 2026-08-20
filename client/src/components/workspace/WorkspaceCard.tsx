@@ -1,4 +1,5 @@
-import { ArrowRight, ExternalLink } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowRight, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
 import { Link } from "wouter";
 import { useLocale } from "@/contexts/LocaleContext";
 import { copy } from "@/lib/workspaceCopy";
@@ -59,19 +60,18 @@ function TemplateMeta({ item, localised }: { item: WorkspaceItem; localised: Loc
   );
 }
 
-export function WorkspaceCard({ item, showSection = false }: { item: WorkspaceItem; showSection?: boolean }) {
+function CardFace({ item, showSection }: { item: WorkspaceItem; showSection: boolean }) {
   const { locale } = useLocale();
   const localised = localiseItem(item, locale);
   const severity = severityOf(item);
   const external = isExternal(item.linkUrl);
-  const hasMedia = Boolean(item.imageUrl);
 
-  const body = (
+  const face = (
     <>
-      {hasMedia && (
+      {item.imageUrl && (
         <img
           className="ws-card__media"
-          src={item.imageUrl ?? ""}
+          src={item.imageUrl}
           alt={localised.imageAlt ?? ""}
           loading="lazy"
           onError={event => { event.currentTarget.style.display = "none"; }}
@@ -80,7 +80,7 @@ export function WorkspaceCard({ item, showSection = false }: { item: WorkspaceIt
       <div className="ws-card__inner">
         <Kicker>{showSection ? sectionLabel(item.slot, locale) : localised.eyebrow}</Kicker>
         {severity !== "normal" && (
-          <div style={{ marginBlockStart: "var(--space-3)" }}>
+          <div className="ws-card__badge">
             <Badge tone={severity === "critical" ? "critical" : "important"}>{copy.severity[severity][locale]}</Badge>
           </div>
         )}
@@ -96,12 +96,53 @@ export function WorkspaceCard({ item, showSection = false }: { item: WorkspaceIt
     </>
   );
 
+  return external ? (
+    <a className="ws-card__link" href={item.linkUrl ?? "#"} target="_blank" rel="noreferrer noopener">{face}</a>
+  ) : (
+    <Link className="ws-card__link" href={`/updates/${item.id}`}>{face}</Link>
+  );
+}
+
+/**
+ * One card. When a section has several published items the card holds all of
+ * them and moves between them, rather than the grid silently showing only the
+ * newest — which is what the previous build did.
+ */
+export function WorkspaceCard({ entries, showSection = false }: { entries: WorkspaceItem[]; showSection?: boolean }) {
+  const { locale } = useLocale();
+  const [index, setIndex] = useState(0);
+  const total = entries.length;
+
+  // A section can shrink between publishes; never point past the end.
+  useEffect(() => { setIndex(current => (current >= total ? 0 : current)); }, [total]);
+
+  if (total === 0) return null;
+  const item = entries[Math.min(index, total - 1)];
+  const move = (step: number) => setIndex(current => (current + step + total) % total);
+
   return (
-    <article className={`ws-card ws-card--flush ${sizeClass(item)}`}>
-      {external ? (
-        <a className="ws-card__link" href={item.linkUrl ?? "#"} target="_blank" rel="noreferrer noopener">{body}</a>
-      ) : (
-        <Link className="ws-card__link" href={`/updates/${item.id}`}>{body}</Link>
+    <article className={`ws-card ws-card--flush ${sizeClass(entries[0])}`}>
+      {/* Keyed on the entry so React remounts it and the enter animation runs. */}
+      <div className="ws-card__stack" key={item.id}>
+        <CardFace item={item} showSection={showSection} />
+      </div>
+
+      {total > 1 && (
+        <div className="ws-card__pager">
+          <button type="button" className="ws-icon-btn ws-card__page-btn" onClick={() => move(-1)} aria-label={copy.actions.previous[locale]}>
+            <ChevronLeft size={18} aria-hidden="true" />
+          </button>
+          <span className="ws-card__dots" aria-hidden="true">
+            {entries.map((entry, dot) => (
+              <span key={entry.id} className={dot === index ? "is-current" : undefined} />
+            ))}
+          </span>
+          <span className="sr-only" aria-live="polite">{`${copy.counter.position[locale]} ${index + 1} / ${total}`}</span>
+          <span className="ws-card__count" aria-hidden="true">{index + 1} / {total}</span>
+          <button type="button" className="ws-icon-btn ws-card__page-btn" onClick={() => move(1)} aria-label={copy.actions.next[locale]}>
+            <ChevronRight size={18} aria-hidden="true" />
+          </button>
+        </div>
       )}
     </article>
   );

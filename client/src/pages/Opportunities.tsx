@@ -38,7 +38,7 @@ export default function Opportunities() {
         <div className="ws-card"><EmptyState message={query ? copy.empty.search[locale] : copy.empty.default[locale]} /></div>
       ) : (
         <div className="ws-grid">
-          {visible.map(item => <WorkspaceCard key={item.id} item={item} />)}
+          {visible.map(item => <WorkspaceCard key={item.id} entries={[item]} />)}
         </div>
       )}
     </AppShell>

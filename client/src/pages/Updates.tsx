@@ -54,7 +54,7 @@ export default function Updates() {
         <div className="ws-card"><EmptyState message={query || slot !== "all" ? copy.empty.search[locale] : copy.empty.default[locale]} /></div>
       ) : (
         <div className="ws-grid">
-          {visible.map(item => <WorkspaceCard key={item.id} item={item} showSection />)}
+          {visible.map(item => <WorkspaceCard key={item.id} entries={[item]} showSection />)}
         </div>
       )}
     </AppShell>

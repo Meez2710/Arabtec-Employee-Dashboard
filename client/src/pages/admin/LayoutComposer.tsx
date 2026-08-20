@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { ArrowDown, ArrowUp, GripVertical, Save } from "lucide-react";
 import { EmptyState, Kicker } from "@/components/workspace/Primitives";
+import { useLocale } from "@/contexts/LocaleContext";
+import { consoleText } from "@/lib/consoleCopy";
 import { cardSizes, slotLabel } from "./adminShared";
 import type { CardSize } from "@/lib/workspaceContent";
 
 export type LayoutRow = { id: number; title: string; slot: string; cardSize: CardSize };
-
-const sizeLabel: Record<CardSize, string> = { "1x1": "Original", "2x1": "Double width", "1x2": "Double height" };
 
 type LayoutComposerProps = {
   rows: LayoutRow[];
@@ -20,6 +20,8 @@ type LayoutComposerProps = {
  * because a hidden press-and-hold gesture is not an affordance.
  */
 export function LayoutComposer({ rows, saving, onSave, renderPreview }: LayoutComposerProps) {
+  const { locale } = useLocale();
+  const c = consoleText(locale);
   const [working, setWorking] = useState<LayoutRow[]>(rows);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [overIndex, setOverIndex] = useState<number | null>(null);
@@ -45,19 +47,19 @@ export function LayoutComposer({ rows, saving, onSave, renderPreview }: LayoutCo
     <>
       <div className="adm__head">
         <div>
-          <Kicker>Workspace console</Kicker>
-          <h1 className="ws-heading ws-heading--dot">Layout</h1>
-          <p className="ws-lede">Arrange the employee home. Reorder with the arrows, the keyboard, or by dragging. Nothing changes for employees until you save.</p>
+          <Kicker>{c.brand}</Kicker>
+          <h1 className="ws-heading ws-heading--dot">{c.layout.title}</h1>
+          <p className="ws-lede">{c.layout.lede}</p>
         </div>
         <button type="button" className="ws-btn ws-btn--primary" onClick={() => onSave(working)} disabled={!dirty || saving}>
-          <Save size={16} aria-hidden="true" /> {saving ? "Saving…" : "Save layout"}
+          <Save size={16} aria-hidden="true" /> {saving ? c.layout.saving : c.layout.save}
         </button>
       </div>
 
       <div className="adm__split">
-        <section className="adm__panel" aria-label="Card order">
+        <section className="adm__panel" aria-label={c.layout.cardOrder}>
           {working.length === 0 ? (
-            <EmptyState message="Publish content to arrange it here." />
+            <EmptyState message={c.layout.empty} />
           ) : (
             <ul className="adm__composer" style={{ listStyle: "none", margin: 0, padding: 0 }}>
               {working.map((row, index) => (
@@ -73,22 +75,22 @@ export function LayoutComposer({ rows, saving, onSave, renderPreview }: LayoutCo
                   <span className="adm__composer-grip" aria-hidden="true"><GripVertical size={18} /></span>
                   <span className="adm__composer-label">
                     <strong>{row.title}</strong>
-                    <span>{slotLabel(row.slot)}</span>
+                    <span>{c.slots[row.slot as keyof typeof c.slots] ?? slotLabel(row.slot)}</span>
                   </span>
                   <span className="adm__composer-controls">
-                    <label className="sr-only" htmlFor={`size-${row.id}`}>Size for {row.title}</label>
+                    <label className="sr-only" htmlFor={`size-${row.id}`}>{c.layout.sizeFor(row.title)}</label>
                     <select id={`size-${row.id}`} className="ws-input" style={{ inlineSize: "auto" }} value={row.cardSize} onChange={event => setSize(row.id, event.target.value as CardSize)}>
-                      {cardSizes.map(size => <option key={size} value={size}>{sizeLabel[size]}</option>)}
+                      {cardSizes.map(size => <option key={size} value={size}>{c.sizes[size]}</option>)}
                     </select>
                     <button
                       type="button" className="ws-btn ws-btn--sm"
                       onClick={() => move(index, index - 1)} disabled={index === 0}
-                      aria-label={`Move ${row.title} earlier`}
+                      aria-label={c.layout.moveEarlier(row.title)}
                     ><ArrowUp size={14} aria-hidden="true" /></button>
                     <button
                       type="button" className="ws-btn ws-btn--sm"
                       onClick={() => move(index, index + 1)} disabled={index === working.length - 1}
-                      aria-label={`Move ${row.title} later`}
+                      aria-label={c.layout.moveLater(row.title)}
                     ><ArrowDown size={14} aria-hidden="true" /></button>
                   </span>
                 </li>
@@ -97,8 +99,8 @@ export function LayoutComposer({ rows, saving, onSave, renderPreview }: LayoutCo
           )}
         </section>
 
-        <aside className="adm__panel" aria-label="Live preview">
-          <Kicker>Live preview</Kicker>
+        <aside className="adm__panel" aria-label={c.layout.livePreview}>
+          <Kicker>{c.layout.livePreview}</Kicker>
           {renderPreview(working)}
         </aside>
       </div>

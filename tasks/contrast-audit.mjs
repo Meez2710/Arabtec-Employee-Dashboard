@@ -53,6 +53,7 @@ const cssTextPairs = [
   ["card dek and article body", [".ws-card__dek", ".ws-priority__body"], colors.body, colors.surface],
   ["card meta label", [".ws-card__meta", ".ws-card__meta dt", ".ws-week__where"], colors.muted, colors.surface],
   ["card meta value", [".ws-card__meta dd"], colors.ink, colors.surface],
+  ["card pager counter", [".ws-card__count"], colors.muted, colors.surface],
   ["card link wrapper", [".ws-card a.ws-card__link"], colors.ink, colors.surface],
   ["avatar initials", [".ws-avatar"], colors.brandHover, colors.brandSoft],
   ["neutral badge", [".ws-badge"], colors.muted, colors.surface],

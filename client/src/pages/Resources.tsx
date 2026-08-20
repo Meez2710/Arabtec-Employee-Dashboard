@@ -47,14 +47,14 @@ export default function Resources() {
             <section className="ws-section" key={group.type} aria-label={copy.resourceType[group.type][locale]}>
               <Kicker>{copy.resourceType[group.type][locale]}</Kicker>
               <div className="ws-grid">
-                {group.entries.map(item => <WorkspaceCard key={item.id} item={item} />)}
+                {group.entries.map(item => <WorkspaceCard key={item.id} entries={[item]} />)}
               </div>
             </section>
           ))}
           {ungrouped.length > 0 && (
             <section className="ws-section" aria-label={copy.pages.resourcesTitle[locale]}>
               <div className="ws-grid">
-                {ungrouped.map(item => <WorkspaceCard key={item.id} item={item} />)}
+                {ungrouped.map(item => <WorkspaceCard key={item.id} entries={[item]} />)}
               </div>
             </section>
           )}
