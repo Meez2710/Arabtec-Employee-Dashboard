@@ -28,6 +28,17 @@ export function AppShell({ children, query, onQueryChange, embedded = false }: A
 
   useEffect(() => { if (searchOpen) searchRef.current?.focus(); }, [searchOpen]);
 
+  // The Workspace is read on site, where connectivity drops. Say so plainly
+  // rather than letting cached content look like the latest word.
+  const [offline, setOffline] = useState(() => typeof navigator !== "undefined" && !navigator.onLine);
+  useEffect(() => {
+    const goOffline = () => setOffline(true);
+    const goOnline = () => setOffline(false);
+    window.addEventListener("offline", goOffline);
+    window.addEventListener("online", goOnline);
+    return () => { window.removeEventListener("offline", goOffline); window.removeEventListener("online", goOnline); };
+  }, []);
+
   const isActive = (href: string) => (href === "/" ? location === "/" : location.startsWith(href));
 
   return (
@@ -78,7 +89,10 @@ export function AppShell({ children, query, onQueryChange, embedded = false }: A
         </div>
       </header>
 
-      <main className="ws-main" id="ws-main">{children}</main>
+      <main className="ws-main" id="ws-main">
+        {offline && <p className="ws-offline" role="status">{copy.states.offline[locale]}</p>}
+        {children}
+      </main>
 
       {!embedded && (
         <nav className="ws-mobile-nav" aria-label={locale === "ar" ? "التنقل السريع" : "Quick navigation"}>

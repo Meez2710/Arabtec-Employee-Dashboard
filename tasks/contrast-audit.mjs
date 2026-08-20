@@ -44,6 +44,7 @@ const cssTextPairs = [
   ["page heading", [".ws-heading", ".ws-subheading", ".ws-modal h2"], colors.ink, colors.canvas],
   ["lede and body copy", [".ws-lede", ".ws-article__body"], colors.body, colors.canvas],
   ["metadata text", [".ws-meta", ".ws-stamp", ".ws-external"], colors.muted, colors.canvas],
+  ["offline notice", [".ws-offline"], colors.body, colors.surfaceSunken],
   ["secondary button text", [".ws-btn"], colors.ink, colors.surface],
   ["primary button text", [".ws-btn--primary"], colors.surface, colors.brand],
   ["danger button text", [".ws-btn--danger"], colors.surface, colors.danger],
