@@ -16,28 +16,28 @@ function TemplateMeta({ item, localised }: { item: WorkspaceItem; localised: Loc
 
   switch (item.slot) {
     case "new_joiner":
-      push(copy.fields.department[locale], item.functionArea);
+      push(copy.fields.department[locale], localised.functionArea);
       push(copy.fields.starts[locale], formatDate(item.eventStart, locale));
       break;
     case "week_ahead":
       push(copy.fields.date[locale], formatDate(item.eventStart, locale, { weekday: "long", day: "numeric", month: "long" }));
-      push(copy.fields.location[locale], item.location);
+      push(copy.fields.location[locale], localised.location);
       break;
     case "activity":
       push(copy.fields.date[locale], formatDate(item.eventStart, locale, { dateStyle: "medium", timeStyle: "short" }));
-      push(copy.fields.location[locale], item.location);
+      push(copy.fields.location[locale], localised.location);
       break;
     case "opportunity":
-      push(copy.fields.location[locale], item.location);
-      push(copy.fields.function[locale], item.functionArea);
+      push(copy.fields.location[locale], localised.location);
+      push(copy.fields.function[locale], localised.functionArea);
       push(copy.fields.closes[locale], formatDate(item.closingDate, locale));
       break;
     case "industry_watch":
-      push(copy.fields.source[locale], item.sourceName);
+      push(copy.fields.source[locale], localised.sourceName);
       break;
     case "resource":
       push(copy.fields.type[locale], item.resourceType ? copy.resourceType[item.resourceType][locale] : null);
-      push(copy.fields.owner[locale], item.sourceName);
+      push(copy.fields.owner[locale], localised.sourceName);
       push(copy.fields.updated[locale], formatDate(item.updatedAt, locale));
       break;
     case "company_news":

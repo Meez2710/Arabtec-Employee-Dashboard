@@ -35,7 +35,7 @@ export function WeekStrip({ items }: { items: WorkspaceItem[] }) {
                   </span>
                   <span>
                     <span className="ws-week__title">{localised.title}</span>
-                    {item.location ? <span className="ws-week__where"> · {item.location}</span> : null}
+                    {localised.location ? <span className="ws-week__where"> · {localised.location}</span> : null}
                   </span>
                 </div>
               );

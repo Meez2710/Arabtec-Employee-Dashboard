@@ -19,8 +19,11 @@ export type EditorDraft = {
   severity: Severity;
   requiresAck: boolean;
   eventStart: string; eventEnd: string;
-  location: string; functionArea: string; closingDate: string;
-  sourceName: string; resourceType: ResourceType | "";
+  location: string; locationAr: string;
+  functionArea: string; functionAreaAr: string;
+  closingDate: string;
+  sourceName: string; sourceNameAr: string;
+  resourceType: ResourceType | "";
   sortOrder: number;
   status: Status;
   scheduledFor: string; expiresAt: string; reviewBy: string;
@@ -33,8 +36,8 @@ export const blankDraft = (): EditorDraft => ({
   eyebrowAr: "", titleAr: "", bodyAr: "",
   linkUrl: "", imageUrl: "", imageAlt: "", imageAltAr: "",
   imageMode: "none", cardSize: "1x1", severity: "normal", requiresAck: false,
-  eventStart: "", eventEnd: "", location: "", functionArea: "", closingDate: "",
-  sourceName: "", resourceType: "", sortOrder: 0, status: "draft",
+  eventStart: "", eventEnd: "", location: "", locationAr: "", functionArea: "", functionAreaAr: "",
+  closingDate: "", sourceName: "", sourceNameAr: "", resourceType: "", sortOrder: 0, status: "draft",
   scheduledFor: "", expiresAt: "", reviewBy: "", ownerUserId: null,
 });
 

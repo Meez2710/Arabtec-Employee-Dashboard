@@ -263,16 +263,25 @@ export function ContentDesk(props: ContentDeskProps) {
               </label>
             )}
             {["activity", "opportunity", "week_ahead"].includes(draft.slot) && (
-              <label className="ws-field"><span>Location</span><input className="ws-input" value={draft.location} onChange={event => set("location", event.target.value)} disabled={!canWrite} aria-invalid={props.blockers.some(b => b.field === "location")} /></label>
+              <div className="adm__bilingual">
+                <label className="ws-field"><span>Location</span><input className="ws-input" value={draft.location} onChange={event => set("location", event.target.value)} disabled={!canWrite} aria-invalid={props.blockers.some(b => b.field === "location")} /></label>
+                <label className="ws-field" lang="ar" dir="rtl"><span>الموقع</span><input className="ws-input" value={draft.locationAr} onChange={event => set("locationAr", event.target.value)} disabled={!canWrite} /></label>
+              </div>
             )}
             {["opportunity", "new_joiner"].includes(draft.slot) && (
-              <label className="ws-field"><span>{draft.slot === "new_joiner" ? "Department" : "Function"}</span><input className="ws-input" value={draft.functionArea} onChange={event => set("functionArea", event.target.value)} disabled={!canWrite} aria-invalid={props.blockers.some(b => b.field === "functionArea")} /></label>
+              <div className="adm__bilingual">
+                <label className="ws-field"><span>{draft.slot === "new_joiner" ? "Department" : "Function"}</span><input className="ws-input" value={draft.functionArea} onChange={event => set("functionArea", event.target.value)} disabled={!canWrite} aria-invalid={props.blockers.some(b => b.field === "functionArea")} /></label>
+                <label className="ws-field" lang="ar" dir="rtl"><span>{draft.slot === "new_joiner" ? "القسم" : "التخصص"}</span><input className="ws-input" value={draft.functionAreaAr} onChange={event => set("functionAreaAr", event.target.value)} disabled={!canWrite} /></label>
+              </div>
             )}
             {draft.slot === "opportunity" && (
               <label className="ws-field"><span>Closing date</span><input className="ws-input" type="datetime-local" value={draft.closingDate} onChange={event => set("closingDate", event.target.value)} disabled={!canWrite} aria-invalid={props.blockers.some(b => b.field === "closingDate")} /></label>
             )}
             {["industry_watch", "resource"].includes(draft.slot) && (
-              <label className="ws-field"><span>{draft.slot === "resource" ? "Owning department" : "Source"}</span><input className="ws-input" value={draft.sourceName} onChange={event => set("sourceName", event.target.value)} disabled={!canWrite} aria-invalid={props.blockers.some(b => b.field === "sourceName")} /></label>
+              <div className="adm__bilingual">
+                <label className="ws-field"><span>{draft.slot === "resource" ? "Owning department" : "Source"}</span><input className="ws-input" value={draft.sourceName} onChange={event => set("sourceName", event.target.value)} disabled={!canWrite} aria-invalid={props.blockers.some(b => b.field === "sourceName")} /></label>
+                <label className="ws-field" lang="ar" dir="rtl"><span>{draft.slot === "resource" ? "القسم المسؤول" : "المصدر"}</span><input className="ws-input" value={draft.sourceNameAr} onChange={event => set("sourceNameAr", event.target.value)} disabled={!canWrite} /></label>
+              </div>
             )}
             {draft.slot === "resource" && (
               <label className="ws-field">

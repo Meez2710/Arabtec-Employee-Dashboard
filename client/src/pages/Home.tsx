@@ -12,7 +12,7 @@ import { WorkspaceCard } from "@/components/workspace/WorkspaceCard";
 import { EmptyState, Kicker, LoadingState } from "@/components/workspace/Primitives";
 import {
   formatCairoGreeting, isActionable, localiseItem, matchesQuery, sectionLabel,
-  sortByRecency, type WorkspaceItem, type WorkspaceSlot,
+  sortByLayout, type WorkspaceItem, type WorkspaceSlot,
 } from "@/lib/workspaceContent";
 
 export type WorkspaceEmployeePreviewItem = WorkspaceItem;
@@ -33,7 +33,7 @@ export default function Home({ previewItems }: { previewItems?: WorkspaceEmploye
   const acknowledge = trpc.workspace.acknowledgeItem.useMutation();
 
   const items = useMemo<WorkspaceItem[]>(
-    () => (previewItems ?? (cardsQuery.data as WorkspaceItem[] | undefined) ?? []).slice().sort(sortByRecency),
+    () => (previewItems ?? (cardsQuery.data as WorkspaceItem[] | undefined) ?? []).slice().sort(sortByLayout),
     [previewItems, cardsQuery.data],
   );
 
@@ -95,23 +95,29 @@ export default function Home({ previewItems }: { previewItems?: WorkspaceEmploye
             canAcknowledge={Boolean(user) && !isPreview}
           />
 
-          {priority.length === 0 && !query && (
-            <p className="ws-lede" style={{ marginBlockEnd: "var(--space-6)" }}>{copy.home.nothingToday[locale]}</p>
+          {/* With nothing published at all, the page says so exactly once.
+              Sections only appear when there is something to put in them. */}
+          {visible.length === 0 ? (
+            <div className="ws-card">
+              <EmptyState message={query ? copy.empty.search[locale] : copy.empty.default[locale]} />
+            </div>
+          ) : (
+            <>
+              {priority.length === 0 && !query && (
+                <p className="ws-lede" style={{ marginBlockEnd: "var(--space-6)" }}>{copy.home.nothingToday[locale]}</p>
+              )}
+
+              {weekItems.length > 0 && <WeekStrip items={weekItems} />}
+
+              {gridBySection.length > 0 && (
+                <section className="ws-section" aria-label={sectionLabel("company_news", locale)}>
+                  <div className="ws-grid">
+                    {gridBySection.map(item => <WorkspaceCard key={item.id} item={item} showSection />)}
+                  </div>
+                </section>
+              )}
+            </>
           )}
-
-          <WeekStrip items={weekItems} />
-
-          <section className="ws-section" aria-label={sectionLabel("company_news", locale)}>
-            {gridBySection.length === 0 ? (
-              <div className="ws-card">
-                <EmptyState message={query ? copy.empty.search[locale] : copy.empty.default[locale]} />
-              </div>
-            ) : (
-              <div className="ws-grid">
-                {gridBySection.map(item => <WorkspaceCard key={item.id} item={item} showSection />)}
-              </div>
-            )}
-          </section>
         </>
       )}
     </AppShell>

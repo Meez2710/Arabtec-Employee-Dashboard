@@ -82,11 +82,14 @@ export const workspaceCards = mysqlTable("workspaceCards", {
   eventEnd: timestamp("eventEnd"),
   /** Activity and opportunity. */
   location: varchar("location", { length: 160 }),
+  locationAr: varchar("locationAr", { length: 160 }),
   /** Opportunity function/discipline, new joiner department. */
   functionArea: varchar("functionArea", { length: 120 }),
+  functionAreaAr: varchar("functionAreaAr", { length: 120 }),
   closingDate: timestamp("closingDate"),
   /** Industry watch publication, resource owning department. */
   sourceName: varchar("sourceName", { length: 160 }),
+  sourceNameAr: varchar("sourceNameAr", { length: 160 }),
   resourceType: mysqlEnum("resourceType", workspaceResourceTypes),
   sortOrder: int("sortOrder").default(0).notNull(),
   active: int("active").default(1).notNull(),

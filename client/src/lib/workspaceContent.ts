@@ -25,14 +25,18 @@ export type WorkspaceItem = {
   imageAlt?: string | null;
   imageAltAr?: string | null;
   cardSize?: CardSize;
+  sortOrder?: number;
   severity?: Severity;
   requiresAck?: number | boolean;
   eventStart?: Date | string | null;
   eventEnd?: Date | string | null;
   location?: string | null;
+  locationAr?: string | null;
   functionArea?: string | null;
+  functionAreaAr?: string | null;
   closingDate?: Date | string | null;
   sourceName?: string | null;
+  sourceNameAr?: string | null;
   resourceType?: ResourceType | null;
   publishedAt?: Date | string | null;
   createdAt?: Date | string | null;
@@ -47,6 +51,9 @@ export type LocalisedItem = {
   title: string;
   body: string;
   imageAlt: string | null;
+  location: string | null;
+  functionArea: string | null;
+  sourceName: string | null;
   translationPending: boolean;
   source: WorkspaceItem;
 };
@@ -61,7 +68,9 @@ export function localiseItem(item: WorkspaceItem, locale: WorkspaceLocale): Loca
   if (locale === "en") {
     return {
       id: item.id, slot: item.slot, eyebrow: item.eyebrow, title: item.title, body: item.body,
-      imageAlt: trimmed(item.imageAlt), translationPending: false, source: item,
+      imageAlt: trimmed(item.imageAlt),
+      location: trimmed(item.location), functionArea: trimmed(item.functionArea), sourceName: trimmed(item.sourceName),
+      translationPending: false, source: item,
     };
   }
   const titleAr = trimmed(item.titleAr);
@@ -73,6 +82,9 @@ export function localiseItem(item: WorkspaceItem, locale: WorkspaceLocale): Loca
     title: titleAr ?? item.title,
     body: bodyAr ?? item.body,
     imageAlt: trimmed(item.imageAltAr) ?? trimmed(item.imageAlt),
+    location: trimmed(item.locationAr) ?? trimmed(item.location),
+    functionArea: trimmed(item.functionAreaAr) ?? trimmed(item.functionArea),
+    sourceName: trimmed(item.sourceNameAr) ?? trimmed(item.sourceName),
     translationPending: !titleAr || !bodyAr,
     source: item,
   };
@@ -134,6 +146,15 @@ export function sizeClass(item: WorkspaceItem): string {
 /** The date this item is "about", which differs by template. */
 export function primaryDate(item: WorkspaceItem): Date | null {
   return toDate(item.eventStart) ?? toDate(item.publishedAt) ?? toDate(item.createdAt);
+}
+
+/**
+ * Home order is the order an admin arranged in the layout composer.
+ * Recency only breaks ties, so saving a layout actually changes the page.
+ */
+export function sortByLayout(a: WorkspaceItem, b: WorkspaceItem): number {
+  const bySlot = (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
+  return bySlot !== 0 ? bySlot : sortByRecency(a, b);
 }
 
 export function sortByRecency(a: WorkspaceItem, b: WorkspaceItem): number {

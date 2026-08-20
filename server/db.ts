@@ -6,6 +6,7 @@ import type { WorkspaceCardInput, WorkspaceHoverCardInput, WorkspaceLayoutInput,
 import { resolvePublishStatus, type WorkspaceContentAction, type WorkspaceContentStatus } from "./workspaceLifecycle";
 import { ENV } from "./_core/env";
 import { cairoWeekRange, isSameCairoDay } from "./workspaceTime";
+import { devSeedCards, isDevSeedEnabled } from "./devSeed";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -51,7 +52,8 @@ function isEmployeeVisible(card: typeof workspaceCards.$inferSelect, now = new D
 
 export async function listWorkspaceCards() {
   const db = await getDb();
-  if (!db) return [];
+  // Local development only, and only when there is nothing real to show.
+  if (!db) return isDevSeedEnabled() ? devSeedCards().filter(card => isEmployeeVisible(card)) : [];
   const now = new Date();
   const cards = await db.select().from(workspaceCards).orderBy(asc(workspaceCards.sortOrder), desc(workspaceCards.updatedAt));
   return cards.filter(card => isEmployeeVisible(card, now));
@@ -65,7 +67,10 @@ export type ManagedWorkspaceItem = typeof workspaceCards.$inferSelect & {
 
 export async function listManagedWorkspaceItems(): Promise<ManagedWorkspaceItem[]> {
   const db = await getDb();
-  if (!db) return [];
+  if (!db) {
+    if (!isDevSeedEnabled()) return [];
+    return devSeedCards().map(card => ({ ...card, ownerName: null, ownerEmail: null, reviewOverdue: false }));
+  }
   const cards = await db.select().from(workspaceCards).orderBy(desc(workspaceCards.updatedAt));
   const ownerIds = Array.from(new Set(cards.flatMap(card => card.ownerUserId ? [card.ownerUserId] : [])));
   const owners = ownerIds.length ? await db.select({ id: users.id, name: users.name, email: users.email }).from(users).where(inArray(users.id, ownerIds)) : [];
@@ -94,8 +99,10 @@ function itemFields(input: WorkspaceCardInput) {
     imageAlt: input.imageAlt ?? null, imageAltAr: input.imageAltAr ?? null,
     cardSize: input.cardSize, severity: input.severity, requiresAck: input.requiresAck ? 1 : 0,
     eventStart: input.eventStart ?? null, eventEnd: input.eventEnd ?? null,
-    location: input.location ?? null, functionArea: input.functionArea ?? null,
-    closingDate: input.closingDate ?? null, sourceName: input.sourceName ?? null,
+    location: input.location ?? null, locationAr: input.locationAr ?? null,
+    functionArea: input.functionArea ?? null, functionAreaAr: input.functionAreaAr ?? null,
+    closingDate: input.closingDate ?? null,
+    sourceName: input.sourceName ?? null, sourceNameAr: input.sourceNameAr ?? null,
     resourceType: input.resourceType ?? null,
     sortOrder: input.sortOrder, scheduledFor: input.scheduledFor ?? null,
     expiresAt: input.expiresAt ?? null, reviewBy: input.reviewBy ?? null,
