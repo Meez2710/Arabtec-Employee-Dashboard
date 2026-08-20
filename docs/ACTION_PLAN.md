@@ -22,6 +22,9 @@ Related: [`AUDIT.md`](AUDIT.md) · [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md)
 | D9 | **Keep `/admin`; add a redirect from `/admin/1618`.** | The enumerable id is already gone locally; the redirect protects any bookmark on the deployed build. |
 | D10 | **Drop Space Grotesk; standardise on the IBM Plex superfamily.** | Space Grotesk has no Arabic companion. See DESIGN_SYSTEM §2. |
 | D11 | **Western Arabic numerals in Arabic locale.** | Mixed-language office; figures stay comparable across both views. |
+| D12 | **The console chrome is pinned to LTR English; the employee preview inside it switches direction.** | The console is an operational tool for Internal Comms and HR, and every string in it — inherited and new — is English. Rendering English right-to-left because the reviewer last read the employee site in Arabic produced ".Overview" and reversed KPI order. Arabic is first-class where it matters: the employee surfaces, and the preview used to check them. Localising the console is a separate, larger piece of work — see "Deferred". |
+| D13 | **Employee responsive rules are container queries, not media queries.** | The console's mobile preview previously only narrowed the box: media queries still answered to the 1440px browser window, so "Mobile" showed a squeezed desktop layout — worse than no preview, because it looked authoritative. With `container-type: inline-size` on the employee shell, the same rules answer to the previewed width, so the preview is truthful. In the app itself the container is the viewport, so behaviour is unchanged. |
+| D14 | **Hover cards are retained in the schema and API but no longer surfaced.** | The many-items-per-section model replaces what `workspaceHoverCards` was working around. Dropping the table would be a destructive migration for no user-visible gain, so the data and its tested schema stay; only the dead client UI was removed. |
 
 ### Migration and rollback
 
@@ -165,3 +168,8 @@ Deliberately excluded, and why:
   built and stays inert until a sender exists, exactly as the current build intends.
 - **Deployment** — the Manus platform deploy is outside this repository's control. See "Deployment"
   in the delivery notes.
+- **Console localisation into Arabic** — deferred deliberately (D12). The console is English-operational
+  today. Doing it properly means moving roughly 150 operational strings into the bilingual dictionary
+  and re-checking every admin layout in RTL; it is a self-contained follow-up, not a loose end in the
+  employee experience.
+- **Readership instrumentation** — see above; `/admin/audit` carries publish activity instead.

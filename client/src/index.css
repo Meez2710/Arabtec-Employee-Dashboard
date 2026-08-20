@@ -224,13 +224,17 @@ img { max-width:100%; }
    App shell
    ========================================================================== */
 
-.ws-page { display:flex; flex-direction:column; min-block-size:100vh; }
+/* The employee shell is a size container, so its responsive rules answer to the
+   width of the shell rather than the browser window. In the app that is the
+   viewport; inside the console's preview frame it is the previewed breakpoint,
+   which is what makes the mobile preview truthful rather than merely narrow. */
+.ws-page { container-type:inline-size; container-name:ws; display:flex; flex-direction:column; min-block-size:100vh; }
 .ws-header { background:var(--surface); border-block-end:1px solid var(--line); position:sticky; inset-block-start:0; z-index:30; }
 .ws-header-inner {
   align-items:center; display:flex; gap:var(--space-5); margin-inline:auto;
   max-inline-size:var(--page-max); min-block-size:68px; padding-inline:var(--space-5); inline-size:100%;
 }
-.ws-brand { align-items:center; color:var(--ink); display:flex; flex:none; gap:var(--space-3); text-decoration:none; }
+.ws-brand { align-items:center; color:var(--ink); display:flex; flex:none; gap:var(--space-3); min-block-size:44px; text-decoration:none; }
 .ws-brand img { block-size:28px; inline-size:auto; }
 .ws-brand span { font-family:var(--font-display); font-size:20px; font-weight:700; letter-spacing:-.02em; }
 .ws-nav { align-items:stretch; display:flex; gap:var(--space-5); margin-inline-start:var(--space-6); min-block-size:68px; }
@@ -374,7 +378,7 @@ textarea.ws-input { min-block-size:120px; resize:vertical; }
 
 .adm { background:var(--canvas); display:grid; grid-template-columns:248px minmax(0,1fr); min-block-size:100vh; }
 .adm__side { background:var(--surface); border-inline-end:1px solid var(--line); display:flex; flex-direction:column; gap:var(--space-5); padding:var(--space-5); position:sticky; inset-block-start:0; block-size:100vh; overflow:auto; }
-.adm__brand { align-items:center; color:var(--ink); display:flex; gap:var(--space-3); text-decoration:none; }
+.adm__brand { align-items:center; color:var(--ink); display:flex; gap:var(--space-3); min-block-size:44px; text-decoration:none; }
 .adm__brand img { block-size:24px; inline-size:auto; }
 .adm__brand span { font-family:var(--font-display); font-size:16px; font-weight:700; }
 .adm__nav { display:grid; gap:2px; }
@@ -440,7 +444,8 @@ textarea.ws-input { min-block-size:120px; resize:vertical; }
 .adm__preview-bar .ws-btn { background:transparent; border-color:var(--muted); color:var(--surface); }
 .adm__preview-bar .ws-btn.is-active { background:var(--surface); border-color:var(--surface); color:var(--ink); }
 .adm__preview-layer { background:var(--canvas); inset:0; overflow:auto; position:fixed; z-index:60; }
-.adm__preview-frame { background:var(--canvas); margin-inline:auto; transition:max-inline-size var(--dur) var(--ease); }
+/* Width here becomes the container width for the previewed employee shell. */
+.adm__preview-frame { background:var(--canvas); inline-size:100%; margin-inline:auto; transition:max-inline-size var(--dur) var(--ease); }
 .adm__preview-frame[data-width="mobile"] { max-inline-size:390px; }
 .adm__preview-frame[data-width="tablet"] { max-inline-size:768px; }
 .adm__preview-frame[data-width="desktop"] { max-inline-size:none; }
@@ -481,22 +486,19 @@ textarea.ws-input { min-block-size:120px; resize:vertical; }
    Responsive
    ========================================================================== */
 
-@media (max-width:1279px) {
+/* Container queries measure the shell's own content width, which is the viewport
+   minus the scrollbar — so these thresholds sit just under the device widths
+   they are meant to catch: 1260 for a 1280 desktop, 1004 for a 1024 laptop,
+   744 for a 768 tablet. See docs/DESIGN_SYSTEM.md §4. */
+@container ws (max-width:1259px) {
   .ws-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
 }
 
-@media (max-width:1023px) {
+@container ws (max-width:1003px) {
   .ws-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
-  .adm { grid-template-columns:1fr; }
-  .adm__side { block-size:auto; flex-direction:row; flex-wrap:wrap; align-items:center; border-block-end:1px solid var(--line); border-inline-end:0; overflow:visible; padding:var(--space-3) var(--space-4); position:static; }
-  .adm__nav { display:flex; flex-wrap:wrap; gap:var(--space-2); }
-  .adm__nav a { padding-inline:var(--space-3); }
-  .adm__who { border-block-start:0; margin-block-start:0; margin-inline-start:auto; padding-block-start:0; text-align:end; }
-  .adm__split { grid-template-columns:1fr; }
-  .adm__bilingual { grid-template-columns:1fr; }
 }
 
-@media (max-width:767px) {
+@container ws (max-width:743px) {
   .ws-header-inner { gap:var(--space-3); min-block-size:60px; padding-inline:var(--space-4); }
   .ws-nav { display:none; }
   .ws-mobile-nav {
@@ -520,6 +522,19 @@ textarea.ws-input { min-block-size:120px; resize:vertical; }
   .ws-heading { font-size:24px; }
   .ws-footer-inner { padding-inline:var(--space-4); }
   .ws-week__row { grid-template-columns:1fr; gap:var(--space-1); }
+}
+
+@media (max-width:1023px) {
+  .adm { grid-template-columns:1fr; }
+  .adm__side { block-size:auto; flex-direction:row; flex-wrap:wrap; align-items:center; border-block-end:1px solid var(--line); border-inline-end:0; overflow:visible; padding:var(--space-3) var(--space-4); position:static; }
+  .adm__nav { display:flex; flex-wrap:wrap; gap:var(--space-2); }
+  .adm__nav a { padding-inline:var(--space-3); }
+  .adm__who { border-block-start:0; margin-block-start:0; margin-inline-start:auto; padding-block-start:0; text-align:end; }
+  .adm__split { grid-template-columns:1fr; }
+  .adm__bilingual { grid-template-columns:1fr; }
+}
+
+@media (max-width:767px) {
   .adm__main { padding:var(--space-5) var(--space-4) var(--space-8); }
   .adm__form { grid-template-columns:1fr; }
   .adm__composer-row { grid-template-columns:auto minmax(0,1fr); }

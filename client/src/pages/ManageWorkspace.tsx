@@ -217,7 +217,7 @@ export default function ManageWorkspace() {
 
   useEffect(() => { setSelectedIds([]); }, [section]);
 
-  if (loading || capabilitiesQuery.isLoading) return <main className="adm__login"><LoadingState /></main>;
+  if (loading || capabilitiesQuery.isLoading) return <main className="adm__login" dir="ltr" lang="en"><LoadingState /></main>;
   if (!user) return <AccessPanel title="Sign in to open the Workspace console." detail="Publishing, scheduling, and content history are available only to authorised Workspace users." action />;
   if (!hasConsole) return <AccessPanel title="Console access is required." detail={`You are signed in as ${user.role}. Ask a Workspace administrator to grant access.`} />;
 
@@ -294,7 +294,7 @@ export default function ManageWorkspace() {
       )}
 
       {previewOpen && (
-        <section className="adm__preview-layer" role="dialog" aria-modal="true" aria-label="Employee preview">
+        <section className="adm__preview-layer" role="dialog" aria-modal="true" aria-label="Employee preview" dir={locale === "ar" ? "rtl" : "ltr"} lang={locale}>
           <div className="adm__preview-bar">
             <div>
               <strong>Employee preview</strong>
@@ -348,7 +348,7 @@ function PublishConfirmation({ item, onCancel, onConfirm, busy }: { item: Manage
 
 function AccessPanel({ title, detail, action = false }: { title: string; detail: string; action?: boolean }) {
   return (
-    <main className="adm__login">
+    <main className="adm__login" dir="ltr" lang="en">
       <section className="adm__login-panel">
         <ShieldCheck size={32} aria-hidden="true" color="var(--brand)" />
         <Kicker>Workspace console</Kicker>

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Archive, Copy, Eye, FilePlus2, RotateCcw, Save, Send, UploadCloud } from "lucide-react";
 import { Badge, EmptyState, Kicker } from "@/components/workspace/Primitives";
 import { formatCairoDate } from "@shared/workspaceTime";
@@ -63,16 +63,31 @@ type ContentDeskProps = {
   onPreview: () => void;
 };
 
+const needsAttention = (item: ManagedItem) => item.reviewOverdue || ["in_review", "approved", "draft"].includes(item.status);
+
 export function ContentDesk(props: ContentDeskProps) {
   const { items, draft, canWrite, canPublish } = props;
-  const [statusFilter, setStatusFilter] = useState<Status | "all" | "attention">("attention");
+  // Open on the work that needs a decision, but fall back to everything when
+  // there is none — landing on an empty table reads as a broken queue.
+  const [statusFilter, setStatusFilter] = useState<Status | "all" | "attention" | null>(null);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<typeof sortOptions[number]["key"]>("priority");
+  const effectiveFilter = statusFilter ?? (items.some(needsAttention) ? "attention" : "all");
+  const editorRef = useRef<HTMLElement>(null);
+  const draftId = draft?.id ?? null;
+
+  // Bring the editor to the reader rather than making them scroll past the
+  // queue. Keyed on which item is open, so it does not fire while typing.
+  const editorOpen = draft !== null;
+  useEffect(() => {
+    if (!editorOpen) return;
+    editorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [draftId, editorOpen]);
 
   const filtered = useMemo(() => {
     let list = items.slice();
-    if (statusFilter === "attention") list = list.filter(item => item.reviewOverdue || ["in_review", "approved", "draft"].includes(item.status));
-    else if (statusFilter !== "all") list = list.filter(item => item.status === statusFilter);
+    if (effectiveFilter === "attention") list = list.filter(needsAttention);
+    else if (effectiveFilter !== "all") list = list.filter(item => item.status === effectiveFilter);
     const term = search.trim().toLowerCase();
     if (term) list = list.filter(item => `${item.title} ${item.slot} ${item.ownerName ?? ""} ${item.ownerEmail ?? ""}`.toLowerCase().includes(term));
     list.sort((a, b) => {
@@ -82,7 +97,7 @@ export function ContentDesk(props: ContentDeskProps) {
       return (a.scheduledFor?.getTime() ?? Infinity) - (b.scheduledFor?.getTime() ?? Infinity);
     });
     return list;
-  }, [items, statusFilter, search, sort]);
+  }, [items, effectiveFilter, search, sort]);
 
   const set = <K extends keyof EditorDraft>(key: K, value: EditorDraft[K]) => {
     if (!draft) return;
@@ -104,7 +119,7 @@ export function ContentDesk(props: ContentDeskProps) {
         <label className="sr-only" htmlFor="content-search">Search content</label>
         <input id="content-search" className="ws-input" type="search" placeholder="Search by title, section, or owner" value={search} onChange={event => setSearch(event.target.value)} />
         <label className="sr-only" htmlFor="content-status">Filter by status</label>
-        <select id="content-status" className="ws-input" value={statusFilter} onChange={event => setStatusFilter(event.target.value as Status | "all")}>
+        <select id="content-status" className="ws-input" value={effectiveFilter} onChange={event => setStatusFilter(event.target.value as Status | "all")}>
           {statuses.map(value => <option key={value} value={value}>{value === "attention" ? "Needs attention" : value === "all" ? "All statuses" : statusLabel(value)}</option>)}
         </select>
         <label className="sr-only" htmlFor="content-sort">Sort</label>
@@ -119,7 +134,9 @@ export function ContentDesk(props: ContentDeskProps) {
         )}
       </div>
 
-      <div className="adm__split">
+      {/* History is contextual to a selected item, so the queue keeps the full
+          width until there is something to show a history for. */}
+      <div className={draft ? "adm__split" : undefined}>
         <section className="adm__panel" aria-label="All content">
           <div className="ws-tablewrap">
             <table className="ws-table">
@@ -183,6 +200,7 @@ export function ContentDesk(props: ContentDeskProps) {
           </div>
         </section>
 
+        {draft && (
         <aside className="adm__panel" aria-label="Item history">
           <Kicker>Item history</Kicker>
           {props.history.length === 0 ? (
@@ -199,10 +217,11 @@ export function ContentDesk(props: ContentDeskProps) {
             </ol>
           )}
         </aside>
+        )}
       </div>
 
       {draft && (
-        <section className="adm__panel" style={{ marginBlockStart: "var(--space-5)" }} aria-label="Item editor">
+        <section ref={editorRef} className="adm__panel" style={{ marginBlockStart: "var(--space-5)" }} aria-label="Item editor">
           <div className="adm__head">
             <div>
               <Kicker>{draft.id ? "Edit item" : "New draft"}</Kicker>

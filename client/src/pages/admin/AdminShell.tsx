@@ -13,8 +13,12 @@ type AdminShellProps = {
 
 export function AdminShell({ section, capabilities, user, attentionCount = 0, children }: AdminShellProps) {
   const allowed = consoleSections.filter(entry => capabilities.includes(entry.capability));
+  // The console is an English-language operational tool (see ACTION_PLAN D12),
+  // so its chrome is pinned to LTR regardless of the employee locale the
+  // reviewer last used. The employee preview inside it still renders in both
+  // directions, which is the surface that has to work in Arabic.
   return (
-    <div className="adm">
+    <div className="adm" dir="ltr" lang="en">
       <aside className="adm__side">
         <Link href="/" className="adm__brand">
           <img src="/brand/arabtec-mark.svg" alt="" width={34} height={22} />

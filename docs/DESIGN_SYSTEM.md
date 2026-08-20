@@ -147,6 +147,24 @@ glassmorphism, no coloured shadows.
 - **Max width 1280px**, page padding 24px desktop / 16px mobile.
 - Employee card grid: **12-column** conceptually, expressed as a 4-track CSS grid.
   - ≥ 1280px → 4 columns · 1024–1279 → 3 · 768–1023 → 2 · < 768 → 1
+
+**Employee breakpoints are container queries, not media queries.** The employee shell declares
+`container-type: inline-size`, so its responsive rules answer to the width of the shell rather than
+the browser window. In the app the shell fills the viewport, so behaviour matches the table above.
+Inside the console's preview frame the shell is the previewed width, which is what makes the
+mobile preview show the real mobile layout instead of a narrowed desktop one.
+
+Because a container measures content width — viewport minus the scrollbar — the thresholds sit just
+under the device widths they catch:
+
+| Container query | Catches | Result |
+|---|---|---|
+| `max-width: 1259px` | 1024–1279 viewports (1009–1264 content) | 3 columns |
+| `max-width: 1003px` | 768–1023 viewports (753–1008 content) | 2 columns |
+| `max-width: 743px` | below 768 (up to 743 content) | 1 column, mobile chrome |
+
+Console chrome keeps ordinary media queries: it is sized by the window, never previewed inside
+anything.
 - **Card size variants**: `1×1` (default), `2×1` (double width), `1×2` (double height). At the
   1-column breakpoint every variant collapses to full width and natural height — no horizontal
   scroll, ever.
