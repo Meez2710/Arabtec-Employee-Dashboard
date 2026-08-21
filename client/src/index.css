@@ -316,7 +316,7 @@ img { max-width:100%; }
 .ws-week__title { color:var(--ink); font-size:16px; font-weight:500; line-height:1.4; }
 .ws-week__where { color:var(--muted); font-size:13px; }
 
-.ws-grid { align-items:stretch; display:grid; gap:var(--space-4); grid-template-columns:repeat(4,minmax(0,1fr)); }
+.ws-grid { align-items:stretch; display:grid; gap:var(--space-4); grid-template-columns:repeat(6,minmax(0,1fr)); }
 .ws-grid > .is-2x1 { grid-column:span 2; }
 .ws-grid > .is-1x2 { grid-row:span 2; }
 
@@ -518,11 +518,11 @@ textarea.ws-input { min-block-size:120px; resize:vertical; }
    they are meant to catch: 1260 for a 1280 desktop, 1004 for a 1024 laptop,
    744 for a 768 tablet. See docs/DESIGN_SYSTEM.md §4. */
 @container ws (max-width:1259px) {
-  .ws-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .ws-grid { grid-template-columns:repeat(4,minmax(0,1fr)); }
 }
 
 @container ws (max-width:1003px) {
-  .ws-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .ws-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
 }
 
 @container ws (max-width:743px) {
@@ -541,7 +541,7 @@ textarea.ws-input { min-block-size:120px; resize:vertical; }
   .ws-main { padding-block:var(--space-5) var(--space-8); padding-inline:var(--space-4); }
   .ws-page { padding-block-end:72px; }
   .ws-search input { inline-size:100%; }
-  .ws-grid { gap:var(--space-3); grid-template-columns:1fr; }
+  .ws-grid { gap:var(--space-3); grid-template-columns:repeat(2,minmax(0,1fr)); }
   /* Every footprint collapses to a single full-width column. No horizontal scroll. */
   .ws-grid > .is-2x1,.ws-grid > .is-1x2 { grid-column:auto; grid-row:auto; }
   .ws-card { padding:var(--space-4); }
