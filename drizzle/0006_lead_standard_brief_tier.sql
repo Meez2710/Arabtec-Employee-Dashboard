@@ -1,0 +1,1 @@
+ALTER TABLE `workspaceCards` ADD `displayTier` enum('lead','standard','brief');
