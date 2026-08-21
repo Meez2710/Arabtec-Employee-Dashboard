@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "wouter";
-import { Languages } from "lucide-react";
+import { Languages, LogOut } from "lucide-react";
 import type { WorkspaceCapability } from "@shared/workspaceCapabilities";
 import { useLocale } from "@/contexts/LocaleContext";
 import { consoleText } from "@/lib/consoleCopy";
@@ -11,10 +11,11 @@ type AdminShellProps = {
   capabilities: readonly WorkspaceCapability[];
   user: { name?: string | null; email?: string | null; role?: string | null } | null;
   attentionCount?: number;
+  onSignOut: () => void;
   children: ReactNode;
 };
 
-export function AdminShell({ section, capabilities, user, attentionCount = 0, children }: AdminShellProps) {
+export function AdminShell({ section, capabilities, user, attentionCount = 0, onSignOut, children }: AdminShellProps) {
   const { locale, toggleLocale } = useLocale();
   const c = consoleText(locale);
   const allowed = consoleSections.filter(entry => capabilities.includes(entry.capability));
@@ -46,6 +47,9 @@ export function AdminShell({ section, capabilities, user, attentionCount = 0, ch
           </button>
           <strong>{user?.name || user?.email || c.signedIn}</strong>
           <span>{role ? c.roles[role] ?? role : c.noAccess}</span>
+          <button type="button" className="ws-btn ws-btn--sm" onClick={onSignOut}>
+            <LogOut size={14} aria-hidden="true" /> {c.signOut}
+          </button>
         </div>
       </aside>
       <div className="adm__main">{children}</div>
