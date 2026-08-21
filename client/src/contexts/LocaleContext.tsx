@@ -5,7 +5,14 @@ type LocaleContextValue = { locale: WorkspaceLocale; setLocale: (locale: Workspa
 const LocaleContext = createContext<LocaleContextValue | null>(null);
 
 export function LocaleProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocale] = useState<WorkspaceLocale>(() => new URLSearchParams(window.location.search).get("locale") === "ar" || window.localStorage.getItem("arabtec-workspace-locale") === "ar" ? "ar" : "en");
+  // A shared link's ?locale= wins over the stored preference, in both
+  // directions — previously only ?locale=ar was honoured, so an English link
+  // sent to a colleague still opened in Arabic.
+  const [locale, setLocale] = useState<WorkspaceLocale>(() => {
+    const requested = new URLSearchParams(window.location.search).get("locale");
+    if (requested === "ar" || requested === "en") return requested;
+    return window.localStorage.getItem("arabtec-workspace-locale") === "ar" ? "ar" : "en";
+  });
   useEffect(() => {
     const root = document.documentElement;
     root.lang = locale;

@@ -14,10 +14,11 @@ const stylesheet = readFileSync(resolve(projectRoot, "client/src/index.css"), "u
 describe("enterprise Workspace policy", () => {
   it("derives employee card content and figures from workspace records rather than fixed demo values", () => {
     expect(homeSource).toContain("trpc.workspace.listCards.useQuery");
-    expect(homeSource).toContain("trpc.workspace.listHoverCards.useQuery");
-    expect(homeSource).toContain("value: announcements");
-    expect(homeSource).toContain("value: opportunities");
+    expect(homeSource).toContain("trpc.workspace.listSections.useQuery");
+    // Nothing employee-facing may be a literal. Every card, count, and date is
+    // read from published records or is absent.
     expect(activeUiSource).not.toMatch(/\b(Ahmed|Mohamed|Tarek|Marina)\b/);
+    expect(homeSource).not.toMatch(/const (?:demo|sample|placeholder)[A-Za-z]*\s*=/i);
   });
 
   it("derives every active client module from the routed app-shell import graph", () => {
@@ -28,15 +29,22 @@ describe("enterprise Workspace policy", () => {
     expect(activeUiFiles).toContain("client/src/pages/NotFound.tsx");
     expect(activeUiFiles).toContain("client/src/components/ui/sonner.tsx");
     expect(activeUiFiles).toContain("client/src/components/ui/tooltip.tsx");
+    // Every promised destination is a real routed page.
+    for (const page of ["Updates", "UpdateDetail", "Opportunities", "Resources"]) {
+      expect(activeUiFiles).toContain(`client/src/pages/${page}.tsx`);
+    }
     expect(Object.keys(sourceByFile)).toEqual(activeUiFiles);
   });
 
   it("keeps the derived active interface inventory above the 13px floor and removes forbidden card scroll behavior", () => {
     expect(stylesheet).not.toMatch(/font-size:\s*(?:[0-9]|1[0-2])px/);
     expect(activeUiSource).not.toMatch(/text-xs|text-\[(?:[0-9]|1[0-2])px\]|text-\[0\.[0-9]+rem\]|tracking-\[-|tracking-tight/);
-    expect(stylesheet).not.toMatch(/aspect-ratio\s*:/);
-    const cardRules = stylesheet.match(/\.dash-card(?:[\w\s>.:,-]*)\{[^}]*\}/g) ?? [];
-    expect(cardRules.join("\n")).not.toMatch(/overflow(?:-x|-y)?\s*:\s*(?:auto|scroll|hidden)/);
+    // A fixed ratio belongs on a media well and nowhere else: the original rule
+    // existed to stop cards being forced square and scrolling internally.
+    const ratioRules = [...stylesheet.matchAll(/([^{}]+)\{[^{}]*aspect-ratio\s*:[^{}]*\}/g)].map(match => match[1].trim());
+    expect(ratioRules).toEqual([".ws-card__media"]);
+    const cardRules = stylesheet.match(/\.ws-card(?:[\w\s>.:_-]*)\{[^}]*\}/g) ?? [];
+    expect(cardRules.join("\n")).not.toMatch(/overflow(?:-x|-y)?\s*:\s*(?:auto|scroll)/);
   });
 
   it("maps every actual CSS text rule and shared app-shell text utility to a verified contrast pairing", () => {
@@ -49,8 +57,13 @@ describe("enterprise Workspace policy", () => {
     expect(auditOutput).toContain("notification text");
   });
 
-  it("uses an accessible signal text token and reduced-motion behavior", () => {
-    expect(stylesheet).toContain("--signal-text:#c8172a");
+  it("uses the playbook brand tokens and reduced-motion behavior", () => {
+    // Playbook §1.1: brand red, ink, and body text.
+    expect(stylesheet).toContain("--brand:#d8232a");
+    expect(stylesheet).toContain("--ink:#16181d");
+    expect(stylesheet).toContain("--body-text:#4a4d53");
+    // Red is an accent, never a page background.
+    expect(stylesheet).not.toMatch(/(?:^|;)\s*background:\s*var\(--brand\)\s*;[^}]*min-block-size:100vh/);
     expect(stylesheet).toContain("@media (prefers-reduced-motion:reduce)");
     expect(stylesheet).toContain("transition:none!important");
   });

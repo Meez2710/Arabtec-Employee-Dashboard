@@ -1,47 +1,140 @@
-/** Arabtec Workspace homepage: employee-facing content remains database driven. */
-import { type ReactNode, useMemo, useState } from "react";
-import { ArrowRight, BellRing, BookOpen, BriefcaseBusiness, CalendarDays, FileText, Globe2, HeartHandshake, UsersRound } from "lucide-react";
-import { BriefingFooter } from "@/components/briefing/BriefingFooter";
-import { BriefingHeader } from "@/components/briefing/BriefingHeader";
-import { getWelcomeMessage } from "@/config/currentEmployee";
+/** Arabtec Workspace daily briefing. All employee-facing content is database driven. */
+import { useMemo, useState } from "react";
+import { toast } from "sonner";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { useLocale } from "@/contexts/LocaleContext";
 import { trpc } from "@/lib/trpc";
+import { copy } from "@/lib/workspaceCopy";
+import { AppShell } from "@/components/workspace/AppShell";
+import { PriorityRail } from "@/components/workspace/PriorityRail";
+import { WeekStrip } from "@/components/workspace/WeekStrip";
+import { WorkspaceCard } from "@/components/workspace/WorkspaceCard";
+import { EmptyState, Kicker, LoadingState } from "@/components/workspace/Primitives";
+import {
+  formatCairoGreeting, isActionable, localiseItem, matchesQuery, sectionLabel,
+  sortByLayout, type WorkspaceItem, type WorkspaceSlot,
+} from "@/lib/workspaceContent";
 
-type DashboardSlot = "new_joiner" | "company_news" | "announcement" | "activity" | "industry_watch" | "opportunity";
-type DashboardCard = { eyebrow: string; title: string; body: string; linkUrl: string | null; imageUrl: string | null };
-export type WorkspaceEmployeePreviewItem = DashboardCard & { slot: DashboardSlot; createdAt?: Date | string };
-type DashboardHoverCard = DashboardCard;
-type Copy = { status: string; searchResults: (query: string, count: number) => string; announcements: string; thisWeek: string; newJoiners: string; companyNews: string; activities: string; industryWatch: string; opportunities: string; resources: string; welcome: string; welcomeDetail: string; noUpdate: string; noMatch: (query: string) => string; openUpdate: string; viewDetails: string; openDetails: string; announcementMetric: string; opportunitiesMetric: string; };
+export type WorkspaceEmployeePreviewItem = WorkspaceItem;
 
-const english: Copy = { status: "Workspace status · published content appears when a Workspace Admin adds it", searchResults: (query, count) => `Search results for “${query}”: ${count} published update${count === 1 ? "" : "s"}`, announcements: "Announcements", thisWeek: "This week", newJoiners: "New joiners", companyNews: "Company news", activities: "Activities", industryWatch: "Industry watch", opportunities: "Internal opportunities", resources: "Policies & resources", welcome: "Welcome", welcomeDetail: "Official employee communications will appear here when a Workspace Admin publishes them.", noUpdate: "No update published yet", noMatch: query => `No published update matches “${query}”`, openUpdate: "Open update", viewDetails: "View details", openDetails: "Open linked details", announcementMetric: "Announcements in the last 7 days", opportunitiesMetric: "Open opportunities" };
-const arabic: Copy = { status: "حالة مساحة العمل · يظهر المحتوى المنشور عند إضافته من مسؤول مساحة العمل", searchResults: (query, count) => `نتائج البحث عن «${query}»: ${count} تحديث منشور`, announcements: "الإعلانات", thisWeek: "هذا الأسبوع", newJoiners: "المنضمون الجدد", companyNews: "أخبار الشركة", activities: "الأنشطة", industryWatch: "متابعة القطاع", opportunities: "الفرص الداخلية", resources: "السياسات والموارد", welcome: "مرحباً", welcomeDetail: "ستظهر الاتصالات الرسمية للموظفين هنا عندما ينشرها مسؤول مساحة العمل.", noUpdate: "لا يوجد تحديث منشور حتى الآن", noMatch: query => `لا يوجد تحديث منشور يطابق «${query}»`, openUpdate: "فتح التحديث", viewDetails: "عرض التفاصيل", openDetails: "فتح التفاصيل المرتبطة", announcementMetric: "إعلانات خلال آخر 7 أيام", opportunitiesMetric: "فرص مفتوحة" };
+/** Sections that get their own dedicated surface rather than a Home card. */
+const ownSurface: WorkspaceSlot[] = ["week_ahead"];
 
 export default function Home({ previewItems }: { previewItems?: WorkspaceEmployeePreviewItem[] }) {
   const { locale } = useLocale();
-  const copy = locale === "ar" ? arabic : english;
+  const { user } = useAuth();
+  const isPreview = previewItems !== undefined;
   const [query, setQuery] = useState("");
-  const { data: storedCards } = trpc.workspace.listCards.useQuery(undefined, { retry: false, enabled: previewItems === undefined });
-  const { data: storedHoverCards } = trpc.workspace.listHoverCards.useQuery(undefined, { retry: false });
-  const effectiveCards = previewItems ?? storedCards ?? [];
-  const cards = useMemo(() => { const next: Partial<Record<DashboardSlot, DashboardCard>> = {}; effectiveCards.forEach(card => { next[card.slot as DashboardSlot] = { eyebrow: card.eyebrow, title: card.title, body: card.body, linkUrl: card.linkUrl, imageUrl: card.imageUrl }; }); return next; }, [effectiveCards]);
-  const hoverBySlot = useMemo(() => { const next: Partial<Record<DashboardSlot, DashboardHoverCard>> = {}; storedHoverCards?.forEach(card => { if (!next[card.parentSlot as DashboardSlot]) next[card.parentSlot as DashboardSlot] = { eyebrow: card.eyebrow, title: card.title, body: card.body, linkUrl: card.linkUrl, imageUrl: card.imageUrl }; }); return next; }, [storedHoverCards]);
-  const normalizedQuery = query.trim().toLocaleLowerCase(locale === "ar" ? "ar" : "en");
-  const matchesQuery = (card?: DashboardCard) => !normalizedQuery || Boolean(card && [card.eyebrow, card.title, card.body].join(" ").toLocaleLowerCase(locale === "ar" ? "ar" : "en").includes(normalizedQuery));
-  const resultCount = useMemo(() => Object.values(cards).filter(card => matchesQuery(card)).length, [cards, normalizedQuery, locale]);
-  const metrics = useMemo(() => { const published = effectiveCards; const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000; const announcements = published.filter(card => card.slot === "announcement" && card.createdAt && new Date(card.createdAt).getTime() >= sevenDaysAgo).length; const opportunities = published.filter(card => card.slot === "opportunity").length; return [...(announcements > 0 ? [{ icon: <BellRing />, value: announcements, label: copy.announcementMetric }] : []), ...(opportunities > 0 ? [{ icon: <BriefcaseBusiness />, value: opportunities, label: copy.opportunitiesMetric }] : [])]; }, [effectiveCards, copy]);
-  const cardFor = (slot: DashboardSlot) => matchesQuery(cards[slot]) ? cards[slot] : undefined;
-  return <div id="home" className="dashboard-page"><BriefingHeader query={query} onSearch={setQuery} /><main className="dashboard-shell"><p className="dashboard-demo-label">{copy.status}</p>{normalizedQuery && <p id="workspace-search-results" className="dashboard-search-status" aria-live="polite">{copy.searchResults(query, resultCount)}</p>}<section className="dashboard-grid" aria-label={locale === "ar" ? "مساحة عمل موظفي أرابتك" : "Arabtec employee workspace"}><WelcomeCard copy={copy} locale={locale} metrics={metrics} /><ManagedCard title={copy.announcements} icon={<BellRing />} card={cardFor("announcement")} hoverCard={hoverBySlot.announcement} copy={copy} searchQuery={normalizedQuery} /><EmptyModule title={copy.thisWeek} icon={<CalendarDays />} copy={copy} /><ManagedCard title={copy.newJoiners} icon={<UsersRound />} card={cardFor("new_joiner")} hoverCard={hoverBySlot.new_joiner} copy={copy} searchQuery={normalizedQuery} media /><ManagedCard title={copy.companyNews} icon={<FileText />} card={cardFor("company_news")} hoverCard={hoverBySlot.company_news} copy={copy} searchQuery={normalizedQuery} media /><ManagedCard title={copy.activities} icon={<HeartHandshake />} card={cardFor("activity")} hoverCard={hoverBySlot.activity} copy={copy} searchQuery={normalizedQuery} media /><ManagedCard title={copy.industryWatch} icon={<Globe2 />} card={cardFor("industry_watch")} hoverCard={hoverBySlot.industry_watch} copy={copy} searchQuery={normalizedQuery} /><ManagedCard title={copy.opportunities} icon={<BriefcaseBusiness />} card={cardFor("opportunity")} hoverCard={hoverBySlot.opportunity} copy={copy} searchQuery={normalizedQuery} /><EmptyModule title={copy.resources} icon={<BookOpen />} copy={copy} /></section></main><BriefingFooter /></div>;
+
+  const utils = trpc.useUtils();
+  const cardsQuery = trpc.workspace.listCards.useQuery(undefined, { retry: false, enabled: !isPreview });
+  const sectionsQuery = trpc.workspace.listSections.useQuery(undefined, { retry: false });
+  const acknowledgedQuery = trpc.workspace.listAcknowledged.useQuery(undefined, { retry: false, enabled: Boolean(user) && !isPreview });
+  const acknowledge = trpc.workspace.acknowledgeItem.useMutation();
+
+  const items = useMemo<WorkspaceItem[]>(
+    () => (previewItems ?? (cardsQuery.data as WorkspaceItem[] | undefined) ?? []).slice().sort(sortByLayout),
+    [previewItems, cardsQuery.data],
+  );
+
+  const visible = useMemo(
+    () => items.filter(item => matchesQuery(localiseItem(item, locale), query)),
+    [items, locale, query],
+  );
+
+  const priority = useMemo(() => visible.filter(isActionable), [visible]);
+  const weekItems = useMemo(() => visible.filter(item => item.slot === "week_ahead"), [visible]);
+  const gridItems = useMemo(
+    () => visible.filter(item => !ownSurface.includes(item.slot) && !priority.includes(item)),
+    [visible, priority],
+  );
+
+  const enabledSections = useMemo(
+    () => new Set((sectionsQuery.data ?? []).filter(section => section.enabled).map(section => section.slot)),
+    [sectionsQuery.data],
+  );
+  const gridBySection = useMemo(
+    () => (enabledSections.size === 0 ? gridItems : gridItems.filter(item => enabledSections.has(item.slot))),
+    [gridItems, enabledSections],
+  );
+
+  /**
+   * One card per section, holding every published item in it. The previous
+   * build reduced each section to a single item, so a second announcement
+   * silently replaced the first.
+   */
+  const cards = useMemo(() => {
+    const bySlot = new Map<WorkspaceSlot, WorkspaceItem[]>();
+    for (const item of gridBySection) {
+      const existing = bySlot.get(item.slot);
+      if (existing) existing.push(item);
+      else bySlot.set(item.slot, [item]);
+    }
+    return Array.from(bySlot, ([slot, entries]) => ({ slot, entries }));
+  }, [gridBySection]);
+
+  const acknowledgedIds = acknowledgedQuery.data ?? [];
+  const greeting = formatCairoGreeting(locale);
+
+  const onAcknowledge = async (id: number) => {
+    try {
+      await acknowledge.mutateAsync({ id });
+      await utils.workspace.listAcknowledged.invalidate();
+      toast.success(copy.actions.acknowledged[locale]);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : copy.states.error[locale]);
+    }
+  };
+
+  const loading = !isPreview && cardsQuery.isLoading;
+
+  return (
+    <AppShell query={query} onQueryChange={setQuery} embedded={isPreview}>
+      <div className="ws-pagehead">
+        <div className="ws-greet">
+          <Kicker>{copy.home.briefing[locale]}</Kicker>
+          <h1 className="ws-heading ws-heading--display ws-heading--dot">{greeting.greeting}</h1>
+          <p className="ws-meta">{greeting.dateLabel}</p>
+        </div>
+      </div>
+
+      {loading ? (
+        <LoadingState />
+      ) : (
+        <>
+          <PriorityRail
+            items={priority}
+            acknowledgedIds={acknowledgedIds}
+            onAcknowledge={onAcknowledge}
+            acknowledging={acknowledge.isPending ? acknowledge.variables?.id ?? null : null}
+            canAcknowledge={Boolean(user) && !isPreview}
+          />
+
+          {/* With nothing published at all, the page says so exactly once.
+              Sections only appear when there is something to put in them. */}
+          {visible.length === 0 ? (
+            <div className="ws-card">
+              <EmptyState message={query ? copy.empty.search[locale] : copy.empty.default[locale]} />
+            </div>
+          ) : (
+            <>
+              {priority.length === 0 && !query && (
+                <p className="ws-lede" style={{ marginBlockEnd: "var(--space-6)" }}>{copy.home.nothingToday[locale]}</p>
+              )}
+
+              {weekItems.length > 0 && <WeekStrip items={weekItems} />}
+
+              {cards.length > 0 && (
+                <section className="ws-section" aria-label={sectionLabel("company_news", locale)}>
+                  <div className="ws-grid">
+                    {cards.map(card => <WorkspaceCard key={card.slot} entries={card.entries} showSection />)}
+                  </div>
+                </section>
+              )}
+            </>
+          )}
+        </>
+      )}
+    </AppShell>
+  );
 }
-
-function WelcomeCard({ metrics, copy, locale }: { metrics: Array<{ icon: ReactNode; value: number; label: string }>; copy: Copy; locale: "en" | "ar" }) { const welcome = getWelcomeMessage(locale); return <section className="dash-card dash-welcome-card"><p className="dash-eyebrow">{copy.welcome}</p><h1>{welcome.greeting}.</h1><p className="dash-welcome-date">{welcome.dateLabel}</p><p>{copy.welcomeDetail}</p>{metrics.length > 0 ? <div className="dash-derived-metrics">{metrics.map(metric => <div key={metric.label}><span>{metric.icon}</span><strong>{metric.value}</strong><p>{metric.label}</p></div>)}</div> : <NoUpdate copy={copy} />}</section>; }
-
-function ManagedCard({ title, icon, card, hoverCard, copy, searchQuery, media = false }: { title: string; icon: ReactNode; card?: DashboardCard; hoverCard?: DashboardHoverCard; copy: Copy; searchQuery: string; media?: boolean }) {
-  if (!card) return <EmptyModule title={title} icon={icon} copy={copy} message={searchQuery ? copy.noMatch(searchQuery) : undefined} />;
-  const content = <>{media && card.imageUrl && <img className="dash-card-media" src={card.imageUrl} alt={`Image accompanying ${card.title} in ${title}`} />}<p className="dash-eyebrow">{card.eyebrow}</p><h2>{card.title}</h2><p className="dash-card-body">{card.body}</p>{card.linkUrl && <span className="dash-link-label">{copy.openUpdate} <ArrowRight size={14} aria-hidden="true" /></span>}</>;
-  return <section className="dash-card dash-hoverable"><div className="dash-card-title-row"><h3>{title}</h3><span>{icon}</span></div>{card.linkUrl ? <a className="dash-card-content" href={card.linkUrl} target="_blank" rel="noreferrer">{content}</a> : <div className="dash-card-content">{content}</div>}{hoverCard && <InlineDetails card={hoverCard} title={title} copy={copy} />}</section>;
-}
-
-function InlineDetails({ card, title, copy }: { card: DashboardHoverCard; title: string; copy: Copy }) { return <details className="dash-card-details"><summary>{copy.viewDetails} <ArrowRight size={14} aria-hidden="true" /></summary><div className="dash-card-details-content">{card.imageUrl && <img src={card.imageUrl} alt={`Image supporting ${card.title} in ${title}`} />}<p className="dash-eyebrow">{card.eyebrow}</p><h2>{card.title}</h2><p>{card.body}</p>{card.linkUrl && <a href={card.linkUrl} target="_blank" rel="noreferrer">{copy.openDetails} <ArrowRight size={14} aria-hidden="true" /></a>}</div></details>; }
-
-function EmptyModule({ title, icon, copy, message }: { title: string; icon: ReactNode; copy: Copy; message?: string }) { return <section className="dash-card dash-empty-card"><div className="dash-card-title-row"><h3>{title}</h3><span>{icon}</span></div><NoUpdate copy={copy} message={message} /></section>; }
-function NoUpdate({ copy, message }: { copy: Copy; message?: string }) { return <div className="dash-empty-state"><span>—</span><p>{message ?? copy.noUpdate}</p></div>; }
