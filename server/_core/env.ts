@@ -2,9 +2,11 @@ export const ENV = {
   cookieSecret: process.env.JWT_SECRET ?? "",
   databaseUrl: process.env.DATABASE_URL ?? "",
   isProduction: process.env.NODE_ENV === "production",
-  // Retained as an empty compatibility field for the existing user upsert helper.
-  // Standalone administrator assignment is explicit in localAuth.ts.
+  // Compatibility-only fields used by legacy helpers that are not mounted by
+  // the standalone server. Empty constants ensure they cannot contact Manus.
   ownerOpenId: "",
+  forgeApiUrl: "",
+  forgeApiKey: "",
   adminEmail: (process.env.ADMIN_EMAIL ?? "").trim().toLowerCase(),
   adminPassword: process.env.ADMIN_PASSWORD ?? "",
   adminName: process.env.ADMIN_NAME ?? "Workspace Administrator",
