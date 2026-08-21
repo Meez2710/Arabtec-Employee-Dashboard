@@ -10,6 +10,7 @@ import {
   type EditorDraft, type Status,
 } from "./adminShared";
 import type { WorkspaceSlot } from "@/lib/workspaceContent";
+import "./adminEase.css";
 
 export type ManagedItem = {
   id: number; slot: string; title: string; status: string;
@@ -100,9 +101,13 @@ export function ContentDesk(props: ContentDeskProps) {
     if (!draft) return;
     props.onDraftChange({ ...draft, [key]: value });
   };
+  const patch = (updates: Partial<EditorDraft>) => {
+    if (!draft) return;
+    props.onDraftChange({ ...draft, ...updates });
+  };
 
   const hasArabic = Boolean(draft?.eyebrowAr || draft?.titleAr || draft?.bodyAr || draft?.locationAr || draft?.functionAreaAr || draft?.sourceNameAr || draft?.imageAltAr);
-  const hasMore = Boolean(draft && (draft.eyebrow || draft.linkUrl || draft.scheduledFor || draft.expiresAt || draft.reviewBy || draft.ownerUserId || draft.cardSize !== "1x1" || draft.severity !== "normal" || draft.requiresAck));
+  const hasMore = Boolean(draft && (draft.eyebrow || draft.linkUrl || draft.scheduledFor || draft.expiresAt || draft.reviewBy || draft.ownerUserId || draft.cardSize !== "1x1" || draft.severity !== "normal"));
 
   return (
     <>
@@ -314,8 +319,8 @@ export function ContentDesk(props: ContentDeskProps) {
                       if (file.size > 5_000_000) { setUploadError(c.editor.tooLarge); return; }
                       setUploading(true);
                       try {
-                        set("imageUrl", await props.onUploadImage(file));
-                        if (!draft.imageMode || draft.imageMode === "none") set("imageMode", "upload");
+                        const imageUrl = await props.onUploadImage(file);
+                        patch({ imageUrl, imageMode: "upload" });
                       } catch (error) {
                         setUploadError(error instanceof Error ? error.message : c.editor.uploadFailed);
                       } finally {
@@ -327,7 +332,7 @@ export function ContentDesk(props: ContentDeskProps) {
                     <ImagePlus size={16} aria-hidden="true" /> {uploading ? c.editor.uploading : draft.imageUrl ? c.editor.replaceImage : c.editor.chooseFile}
                   </button>
                   {draft.imageUrl && (
-                    <button type="button" className="ws-btn" onClick={() => { set("imageUrl", ""); set("imageAlt", ""); set("imageAltAr", ""); set("imageMode", "none"); }} disabled={!canWrite}>
+                    <button type="button" className="ws-btn" onClick={() => patch({ imageUrl: "", imageAlt: "", imageAltAr: "", imageMode: "none" })} disabled={!canWrite}>
                       <Trash2 size={16} aria-hidden="true" /> {c.editor.removeImage}
                     </button>
                   )}
