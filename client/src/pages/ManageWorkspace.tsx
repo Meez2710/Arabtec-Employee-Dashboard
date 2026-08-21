@@ -16,14 +16,14 @@ import { Overview } from "./admin/Overview";
 import { ContentDesk, type ManagedItem } from "./admin/ContentDesk";
 import { LayoutComposer, type LayoutRow } from "./admin/LayoutComposer";
 import { AuditScreen, MediaScreen, PeopleScreen, SectionsScreen, SettingsScreen, type SectionRow } from "./admin/SimpleSections";
-import { blankDraft, fromDateInput, slotLabel, toDateInput, type ConsoleSection, type EditorDraft, type Status } from "./admin/adminShared";
+import { blankDraft, fromDateInput, resolvedEyebrow, slotLabel, toDateInput, type ConsoleSection, type EditorDraft, type Status } from "./admin/adminShared";
 import { formatCairoDate } from "@shared/workspaceTime";
 import type { CardSize, ResourceType, Severity, WorkspaceSlot } from "@/lib/workspaceContent";
 
 type PreviewWidth = "desktop" | "tablet" | "mobile";
 
 export default function ManageWorkspace() {
-  const { user, loading } = useAuth();
+  const { user, loading, logout } = useAuth();
   const { locale, setLocale } = useLocale();
   const [, params] = useRoute("/admin/:section");
   const section = (params?.section ?? "overview") as ConsoleSection;
@@ -64,7 +64,6 @@ export default function ManageWorkspace() {
   const setRole = trpc.workspace.setUserRole.useMutation();
   const uploadImage = trpc.workspace.uploadImage.useMutation();
 
-  /** Reads the file in the browser and hands the bytes to the storage mutation. */
   const onUploadImage = async (file: File): Promise<string> => {
     const base64 = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
@@ -153,10 +152,11 @@ export default function ManageWorkspace() {
 
   const saveDraft = async () => {
     if (!draft) return;
-    if (!draft.eyebrow.trim() || !draft.title.trim()) { toast.error(c.toasts.needLabelTitle); return; }
+    if (!draft.title.trim()) { toast.error(c.toasts.needLabelTitle); return; }
+    const eyebrow = resolvedEyebrow(draft.eyebrow, c.slots[draft.slot]);
     try {
       const saved = await save.mutateAsync({
-        id: draft.id, slot: draft.slot, eyebrow: draft.eyebrow, title: draft.title, body: draft.body,
+        id: draft.id, slot: draft.slot, eyebrow, title: draft.title, body: draft.body,
         eyebrowAr: draft.eyebrowAr || null, titleAr: draft.titleAr || null, bodyAr: draft.bodyAr || null,
         linkUrl: draft.linkUrl || null, imageUrl: draft.imageUrl || null,
         imageAlt: draft.imageAlt || null, imageAltAr: draft.imageAltAr || null,
@@ -182,7 +182,6 @@ export default function ManageWorkspace() {
     }
   };
 
-  /** Preview always renders the real employee page, never a mock of it. */
   const previewItems = useMemo<WorkspaceEmployeePreviewItem[]>(() => {
     const layoutById = new Map((previewRows ?? []).map((row, index) => [row.id, { cardSize: row.cardSize, sortOrder: index }]));
     const published = rawItems
@@ -192,7 +191,7 @@ export default function ManageWorkspace() {
     const preview = {
       ...draft,
       id: draft.id ?? -1,
-      eyebrow: draft.eyebrow || c.preview.previewKicker,
+      eyebrow: resolvedEyebrow(draft.eyebrow, c.slots[draft.slot]),
       requiresAck: draft.requiresAck ? 1 : 0,
       eventStart: fromDateInput(draft.eventStart),
       closingDate: fromDateInput(draft.closingDate),
@@ -206,7 +205,7 @@ export default function ManageWorkspace() {
       createdAt: new Date(), publishedAt: new Date(), updatedAt: new Date(),
     };
     return [...published, preview] as unknown as WorkspaceEmployeePreviewItem[];
-  }, [rawItems, draft, previewRows]);
+  }, [rawItems, draft, previewRows, c.slots]);
 
   const layoutRows = useMemo<LayoutRow[]>(
     () => rawItems
@@ -242,7 +241,7 @@ export default function ManageWorkspace() {
 
   return (
     <>
-      <AdminShell section={section} capabilities={capabilities} user={user} attentionCount={attentionCount}>
+      <AdminShell section={section} capabilities={capabilities} user={user} attentionCount={attentionCount} onSignOut={() => void logout()}>
         {section === "overview" && (overviewQuery.data
           ? <Overview data={overviewQuery.data as never} onOpenItem={openItem} />
           : <LoadingState />)}
