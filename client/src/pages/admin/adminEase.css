@@ -1,0 +1,33 @@
+.adm__image-row {
+  align-items: start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.adm__image-preview {
+  background: var(--surface-sunken);
+  block-size: 96px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  display: block;
+  inline-size: 144px;
+  max-block-size: 96px;
+  max-inline-size: 144px;
+  object-fit: cover;
+}
+
+.adm__more {
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  grid-column: 1 / -1;
+  padding: var(--space-3) var(--space-4);
+}
+
+.adm__more > summary {
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  min-block-size: 44px;
+  padding-block: var(--space-2);
+}
