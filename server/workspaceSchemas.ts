@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { workspaceDisplayTiers } from "@shared/workspaceDisplayTier";
 
 export const workspaceCardSlots = ["new_joiner", "company_news", "announcement", "activity", "industry_watch", "opportunity", "week_ahead", "resource"] as const;
 export const workspaceSlotDisplayOrder = ["announcement", "week_ahead", "new_joiner", "company_news", "activity", "industry_watch", "opportunity", "resource"] as const;
@@ -28,6 +29,9 @@ export const workspaceCardSchema = z.object({
   imageAlt: optionalText(220),
   imageAltAr: optionalText(220),
   cardSize: z.enum(workspaceCardSizes).default("1x1"),
+  // News Grid Hierarchy: additive, nullable editorial tier. Omitted/null resolves to "standard" via
+  // tierOf() at read time — never defaulted here, so existing rows are never implicitly reassigned.
+  displayTier: z.enum(workspaceDisplayTiers).nullable().optional(),
   severity: z.enum(workspaceSeverities).default("normal"),
   requiresAck: z.boolean().default(false),
   eventStart: z.date().nullable().optional(),
@@ -55,6 +59,12 @@ export const workspacePublishItemSchema = workspaceItemIdSchema.extend({ confirm
 // Publish gates live in shared/ so the console and the server enforce the same rules.
 export { evaluatePublishReadiness, requiredFieldsBySlot } from "@shared/publishReadiness";
 export type { PublishBlocker, PublishCandidate } from "@shared/publishReadiness";
+
+// News Grid Hierarchy display tier lives in shared/ so the console and the employee client
+// enforce/render the same "lead | standard | brief" model. Re-exported here for server call sites
+// that already import enums from workspaceSchemas.
+export { workspaceDisplayTiers, tierOf } from "@shared/workspaceDisplayTier";
+export type { DisplayTier } from "@shared/workspaceDisplayTier";
 
 /** A repeatable accessible disclosure attached to a dashboard section. */
 export const workspaceHoverCardSchema = z.object({
