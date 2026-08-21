@@ -142,6 +142,55 @@ fallback and role enforcement; `pnpm build` succeeds.
 
 ---
 
+## News Grid Hierarchy — editorial display tiers · **M**
+
+### Current card-size model (as built)
+
+- `CardSize = "1x1" | "2x1" | "1x2"` — stored on `workspaceCards.cardSize` (DB), mirrored in
+  `WorkspaceItem.cardSize` (`client/src/lib/workspaceContent.ts`) and `workspaceCardSchema.cardSize`
+  (`server/workspaceSchemas.ts`). Default `"1x1"`.
+- `sizeClass(item)` resolves the value (defaulting missing to `"1x1"`) to a CSS class
+  (`is-1x1` / `is-2x1` / `is-1x2`) applied in `WorkspaceCard.tsx`.
+- `cardSize` is a **footprint-only** concept — how many grid cells a card occupies. It carries no
+  editorial-hierarchy meaning: a `2x1` announcement and a `2x1` opportunity are visually equal weight.
+  There is no concept of "this is the most important item on the page" distinct from its size, and no
+  compact/list treatment smaller than `1x1`.
+
+### Implemented additive model: `displayTier`
+
+Adds an editorial-hierarchy axis alongside (not replacing) `cardSize`, modelled on the same
+additive/nullable pattern as `cardSize` and `severity` (D1, `drizzle/0004_peaceful_jack_flag.sql`).
+
+- `DisplayTier = "lead" | "standard" | "brief"`, defined once in `shared/workspaceDisplayTier.ts` and
+  imported by both the server (`server/workspaceSchemas.ts`) and the client
+  (`client/src/lib/workspaceContent.ts`) — one source of truth, per D1's additive-schema convention.
+- `workspaceCards.displayTier` is a **new nullable enum column**, no default, added via a standalone
+  migration (`drizzle/0006_lead_standard_brief_tier.sql`) that only adds a column — it does not modify
+  or reorder any existing enum (`cardSize`, `severity`, `slot`, `status`, `role`, etc.).
+- `tierOf(item)` resolves the effective tier, defaulting a missing/null value to `"standard"` —
+  mirroring `severityOf()`. This means **no published item changes tier** until an admin explicitly
+  sets one; the default is resolved in code, never backfilled in SQL (consistent with the existing
+  "Migration and rollback" rule above).
+- Tier semantics:
+  - `"lead"` — the single most prominent item, full-bleed/hero treatment, independent of `cardSize`.
+  - `"standard"` — current default behaviour; keeps its existing `cardSize` footprint choice.
+  - `"brief"` — compact list-row treatment; ignores `cardSize` entirely.
+
+**Status:** schema/type layer landed (branch `feature/news-grid-hierarchy`): migration `0006`,
+`drizzle/schema.ts`, `shared/workspaceDisplayTier.ts`, `server/workspaceSchemas.ts`,
+`client/src/lib/workspaceContent.ts`. Visual treatment per tier (Home zoning, `WorkspaceCard.tsx`,
+responsive breakpoints, admin layout composer) is not yet implemented.
+
+### Open questions (not yet resolved — defaults assumed until confirmed)
+
+| # | Question | Default assumed if unanswered |
+|---|---|---|
+| Q1 | How is at-most-one `"lead"` per page/section enforced — DB constraint, publish-gate validation, or render-time ("first by `sortOrder` wins, rest treated as `standard`")? | Render-time: first `lead` by `sortOrder` wins; no publish-time block on a second `lead`. |
+| Q2 | Does `"standard"` keep the full `1x1/2x1/1x2` `cardSize` choice, or does tier constrain which sizes are available? | Full `cardSize` choice retained for `standard`. |
+| Q3 | Is `"brief"` granularity per-item, or can an admin mark a whole section as brief-only? | Per-item; no section-level override in this iteration. |
+
+---
+
 ## Sequence
 
 | Step | Workstream | Why here |
@@ -156,6 +205,7 @@ fallback and role enforcement; `pnpm build` succeeds.
 | 8 | Roles + audit enforcement (WS5) | Hardens everything above |
 | 9 | RTL + responsive pass (WS6) | Verifies the whole surface |
 | 10 | Empty/error/loading polish + copy (WS6) | Last, once all surfaces exist |
+| 11 | News Grid Hierarchy tiers (new) | Schema/types landed; visual treatment lands after Home restyle (4) so lead/standard/brief have a stable grid to sit in |
 
 ---
 

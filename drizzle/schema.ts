@@ -9,6 +9,8 @@ export const workspaceCardSlots = ["new_joiner", "company_news", "announcement",
 export const workspaceSlotDisplayOrder = ["announcement", "week_ahead", "new_joiner", "company_news", "activity", "industry_watch", "opportunity", "resource"] as const;
 export const workspaceCardSizes = ["1x1", "2x1", "1x2"] as const;
 export const workspaceSeverities = ["normal", "important", "critical"] as const;
+/** Editorial hierarchy tier for the News Grid Hierarchy layout. Additive alongside cardSize/severity — see shared/workspaceDisplayTier.ts. */
+export const workspaceDisplayTiers = ["lead", "standard", "brief"] as const;
 export const workspaceResourceTypes = ["policy", "form", "handbook", "template", "contact"] as const;
 export const workspaceImageModes = ["none", "upload", "link_preview"] as const;
 /** Extends the digest model with scheduled, unpublished, and archived Workspace-specific states. */
@@ -74,6 +76,8 @@ export const workspaceCards = mysqlTable("workspaceCards", {
   imageAltAr: varchar("imageAltAr", { length: 220 }),
   /** Home layout: grid footprint of this card. */
   cardSize: mysqlEnum("cardSize", workspaceCardSizes).default("1x1").notNull(),
+  /** News Grid Hierarchy: editorial-prominence tier, independent of cardSize footprint. Additive, nullable, no default — missing means "standard", resolved in code via tierOf() so existing rows are unaffected until an admin sets it explicitly. */
+  displayTier: mysqlEnum("displayTier", workspaceDisplayTiers),
   /** Announcement template: severity drives the priority rail; acknowledgement is opt-in per item. */
   severity: mysqlEnum("severity", workspaceSeverities).default("normal").notNull(),
   requiresAck: int("requiresAck").default(0).notNull(),

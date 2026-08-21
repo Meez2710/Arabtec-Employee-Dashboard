@@ -1,6 +1,7 @@
 import type { WorkspaceLocale } from "@/contexts/LocaleContext";
 import { copy } from "@/lib/workspaceCopy";
 import { cairoHour, formatCairoDate, WORKSPACE_TIME_ZONE } from "@shared/workspaceTime";
+import { tierOf as sharedTierOf, workspaceDisplayTiers, type DisplayTier } from "@shared/workspaceDisplayTier";
 
 export type WorkspaceSlot =
   | "announcement" | "week_ahead" | "new_joiner" | "company_news"
@@ -9,6 +10,8 @@ export type WorkspaceSlot =
 export type CardSize = "1x1" | "2x1" | "1x2";
 export type Severity = "normal" | "important" | "critical";
 export type ResourceType = "policy" | "form" | "handbook" | "template" | "contact";
+export type { DisplayTier };
+export { workspaceDisplayTiers };
 
 /** The shape the employee surfaces consume, whether from the API or a console preview. */
 export type WorkspaceItem = {
@@ -25,6 +28,8 @@ export type WorkspaceItem = {
   imageAlt?: string | null;
   imageAltAr?: string | null;
   cardSize?: CardSize;
+  /** News Grid Hierarchy: editorial-prominence tier, independent of cardSize. Missing/null resolves to "standard" via tierOf(). */
+  displayTier?: DisplayTier | null;
   sortOrder?: number;
   severity?: Severity;
   requiresAck?: number | boolean;
@@ -127,6 +132,11 @@ export function sectionLabel(slot: WorkspaceSlot, locale: WorkspaceLocale): stri
 
 export function severityOf(item: WorkspaceItem): Severity {
   return item.severity ?? "normal";
+}
+
+/** News Grid Hierarchy: resolves the effective display tier, defaulting missing/null to "standard". */
+export function tierOf(item: WorkspaceItem): DisplayTier {
+  return sharedTierOf(item);
 }
 
 export function requiresAcknowledgement(item: WorkspaceItem): boolean {
