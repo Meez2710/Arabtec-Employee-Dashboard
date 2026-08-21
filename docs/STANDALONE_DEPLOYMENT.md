@@ -60,7 +60,7 @@ Database:
 
 ```bash
 mkdir -p backups
-docker compose exec -T db mysqldump -u root -p"$MYSQL_ROOT_PASSWORD" --single-transaction --routines --triggers "$MYSQL_DATABASE" > backups/database.sql
+docker compose exec -T db sh -c 'exec mysqldump -u root -p"$MYSQL_ROOT_PASSWORD" --single-transaction --routines --triggers "$MYSQL_DATABASE"' > backups/database.sql
 ```
 
 Uploads:

@@ -10,7 +10,9 @@ function normalizeKey(value: string) {
   return cleaned;
 }
 function publicUrl(key: string) {
-  return `/uploads/${key.split("/").map(encodeURIComponent).join("/")}`;
+  // Keep the established URL prefix so existing schema validation and restored
+  // database rows remain compatible. Files are served locally; no Manus service is contacted.
+  return `/manus-storage/${key.split("/").map(encodeURIComponent).join("/")}`;
 }
 
 export async function storagePut(relKey: string, data: Buffer | Uint8Array | string, _contentType = "application/octet-stream") {
