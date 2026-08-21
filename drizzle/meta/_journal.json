@@ -43,6 +43,13 @@
       "when": 1787195836841,
       "tag": "0005_premium_ink",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1787200000000,
+      "tag": "0006_lead_standard_brief_tier",
+      "breakpoints": true
     }
   ]
 }
