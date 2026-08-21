@@ -40,7 +40,8 @@ db_password="$(openssl rand -hex 24)"
 root_password="$(openssl rand -hex 24)"
 jwt_secret="$(openssl rand -hex 32)"
 cron_secret="$(openssl rand -hex 32)"
-admin_email_escaped="$(escape_env "${admin_email,,}")"
+normalized_email="$(printf '%s' "$admin_email" | tr '[:upper:]' '[:lower:]')"
+admin_email_escaped="$(escape_env "$normalized_email")"
 admin_password_escaped="$(escape_env "$admin_password")"
 
 if [[ -f .env ]]; then
