@@ -32,8 +32,17 @@ log "Installing dependencies"
 cd "$APP_DIR"
 sudo -u "$APP_USER" env HOME="/home/$APP_USER" corepack pnpm install --frozen-lockfile
 
+log "Type-checking"
+# esbuild and vite do not typecheck, so without this a commit with type
+# errors would build cleanly and fail at runtime. Runs before anything
+# touches the live service.
+sudo -u "$APP_USER" env HOME="/home/$APP_USER" corepack pnpm check
+
 log "Building"
 sudo -u "$APP_USER" env HOME="/home/$APP_USER" NODE_ENV=production corepack pnpm build
+
+# vite build is the memory-hungry step. On a server with under 2 GB RAM,
+# add swap first or the build is killed with no clear error.
 
 log "Applying database migrations"
 # migrate only. 'pnpm db:push' also runs 'generate', which authors new
