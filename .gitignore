@@ -112,3 +112,8 @@ temp/
 # Manus version file (auto-generated, not part of source)
 client/public/__manus__/version.json
 .project-config.json
+
+# Timestamped env backups hold live secrets (DB root password, JWT_SECRET,
+# admin password). This repository is public.
+.env.backup*
+.env.*.bak
