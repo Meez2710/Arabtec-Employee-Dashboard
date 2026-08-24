@@ -36,7 +36,11 @@ services:
 
   cloudflared:
     image: cloudflare/cloudflared:latest
-    restart: unless-stopped
+    # Deliberately not "unless-stopped": the workspace now runs on the internal
+    # company network and must not reconnect a public tunnel on its own if
+    # Docker is started for some other project. Bring it up only on purpose,
+    # with: docker compose --profile public up -d cloudflared
+    restart: "no"
     profiles: ["public"]
     command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}
     depends_on:
