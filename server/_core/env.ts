@@ -1,10 +1,15 @@
 export const ENV = {
-  appId: process.env.VITE_APP_ID ?? "",
   cookieSecret: process.env.JWT_SECRET ?? "",
   databaseUrl: process.env.DATABASE_URL ?? "",
-  oAuthServerUrl: process.env.OAUTH_SERVER_URL ?? "",
-  ownerOpenId: process.env.OWNER_OPEN_ID ?? "",
   isProduction: process.env.NODE_ENV === "production",
-  forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? "",
-  forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? "",
+  // Compatibility-only fields used by legacy helpers that are not mounted by
+  // the standalone server. Empty constants ensure they cannot contact Manus.
+  ownerOpenId: "",
+  forgeApiUrl: "",
+  forgeApiKey: "",
+  adminEmail: (process.env.ADMIN_EMAIL ?? "").trim().toLowerCase(),
+  adminPassword: process.env.ADMIN_PASSWORD ?? "",
+  adminName: process.env.ADMIN_NAME ?? "Workspace Administrator",
+  uploadDir: process.env.UPLOAD_DIR ?? "data/uploads",
+  cronSecret: process.env.CRON_SECRET ?? "",
 };

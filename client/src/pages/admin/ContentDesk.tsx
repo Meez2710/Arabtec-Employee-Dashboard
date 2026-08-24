@@ -7,9 +7,10 @@ import { copy } from "@/lib/workspaceCopy";
 import { formatCairoDate } from "@shared/workspaceTime";
 import {
   cardSizes, resourceTypes, severities, slotLabel, slots, statusLabel, statusTone,
-  toDateInput, type EditorDraft, type Status,
+  type EditorDraft, type Status,
 } from "./adminShared";
 import type { WorkspaceSlot } from "@/lib/workspaceContent";
+import "./adminEase.css";
 
 export type ManagedItem = {
   id: number; slot: string; title: string; status: string;
@@ -24,8 +25,6 @@ export type Blocker = { field: string; message: string };
 const statuses: Array<Status | "all" | "attention"> = ["attention", "all", "draft", "in_review", "approved", "scheduled", "published", "unpublished", "archived"];
 const sortKeys = ["priority", "updated", "review", "golive"] as const;
 
-
-/** Later status = closer to needing a decision, so the queue can rank by urgency. */
 const priorityRank = (item: ManagedItem) => {
   if (item.reviewOverdue) return 0;
   if (item.status === "in_review") return 1;
@@ -57,7 +56,6 @@ type ContentDeskProps = {
   onAction: (id: number, action: "unpublish" | "archive" | "restore" | "duplicate" | "submit") => void;
   onBulk: (action: "archive" | "unpublish") => void;
   onPreview: () => void;
-  /** Returns the stored URL for an uploaded image. */
   onUploadImage: (file: File) => Promise<string>;
 };
 
@@ -65,8 +63,6 @@ const needsAttention = (item: ManagedItem) => item.reviewOverdue || ["in_review"
 
 export function ContentDesk(props: ContentDeskProps) {
   const { items, draft, canWrite, canPublish } = props;
-  // Open on the work that needs a decision, but fall back to everything when
-  // there is none — landing on an empty table reads as a broken queue.
   const [statusFilter, setStatusFilter] = useState<Status | "all" | "attention" | null>(null);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<typeof sortKeys[number]>("priority");
@@ -79,10 +75,8 @@ export function ContentDesk(props: ContentDeskProps) {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const draftId = draft?.id ?? null;
-
-  // Bring the editor to the reader rather than making them scroll past the
-  // queue. Keyed on which item is open, so it does not fire while typing.
   const editorOpen = draft !== null;
+
   useEffect(() => {
     if (!editorOpen) return;
     editorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -107,6 +101,13 @@ export function ContentDesk(props: ContentDeskProps) {
     if (!draft) return;
     props.onDraftChange({ ...draft, [key]: value });
   };
+  const patch = (updates: Partial<EditorDraft>) => {
+    if (!draft) return;
+    props.onDraftChange({ ...draft, ...updates });
+  };
+
+  const hasArabic = Boolean(draft?.eyebrowAr || draft?.titleAr || draft?.bodyAr || draft?.locationAr || draft?.functionAreaAr || draft?.sourceNameAr || draft?.imageAltAr);
+  const hasMore = Boolean(draft && (draft.eyebrow || draft.linkUrl || draft.scheduledFor || draft.expiresAt || draft.reviewBy || draft.ownerUserId || draft.cardSize !== "1x1" || draft.severity !== "normal"));
 
   return (
     <>
@@ -114,7 +115,7 @@ export function ContentDesk(props: ContentDeskProps) {
         <div>
           <Kicker>{c.brand}</Kicker>
           <h1 className="ws-heading ws-heading--dot">{c.content.title}</h1>
-          <p className="ws-lede">{c.content.lede}</p>
+          <p className="ws-lede">{items.length === 0 && !draft ? c.content.firstCard : c.content.lede}</p>
         </div>
         {canWrite && <button type="button" className="ws-btn ws-btn--primary" onClick={props.onNew}><FilePlus2 size={16} aria-hidden="true" /> {c.content.newItem}</button>}
       </div>
@@ -138,8 +139,6 @@ export function ContentDesk(props: ContentDeskProps) {
         )}
       </div>
 
-      {/* History is contextual to a selected item, so the queue keeps the full
-          width until there is something to show a history for. */}
       <div className={draft ? "adm__split" : undefined}>
         <section className="adm__panel" aria-label={c.content.allContent}>
           <div className="ws-tablewrap">
@@ -160,16 +159,11 @@ export function ContentDesk(props: ContentDeskProps) {
                 {props.loading ? (
                   <tr><td colSpan={7}><EmptyState message={c.content.loading} /></td></tr>
                 ) : filtered.length === 0 ? (
-                  <tr><td colSpan={7}><EmptyState message={c.content.noMatches} /></td></tr>
+                  <tr><td colSpan={7}><EmptyState message={items.length === 0 ? c.content.firstCard : c.content.noMatches} /></td></tr>
                 ) : filtered.map(item => (
                   <tr key={item.id} className={draft?.id === item.id ? "is-selected" : undefined}>
                     <td data-label={c.content.columns.select}>
-                      <input
-                        type="checkbox"
-                        checked={props.selectedIds.includes(item.id)}
-                        onChange={() => props.onToggleSelect(item.id)}
-                        aria-label={c.content.selectItem(item.title)}
-                      />
+                      <input type="checkbox" checked={props.selectedIds.includes(item.id)} onChange={() => props.onToggleSelect(item.id)} aria-label={c.content.selectItem(item.title)} />
                     </td>
                     <td data-label={c.content.columns.item}>
                       <button type="button" className="ws-table__title" onClick={() => props.onSelectItem(item.id)}>
@@ -242,41 +236,19 @@ export function ContentDesk(props: ContentDeskProps) {
               </select>
             </label>
             <label className="ws-field">
-              <span>{c.editor.owner}</span>
-              <select className="ws-input" value={draft.ownerUserId ?? ""} onChange={event => set("ownerUserId", event.target.value ? Number(event.target.value) : null)} disabled={!canWrite}>
-                <option value="">{c.editor.assignToMe}</option>
-                {props.owners.map(owner => <option key={owner.id} value={owner.id}>{owner.name || owner.email || c.editor.accountLabel(owner.id)}</option>)}
-              </select>
+              <span>{c.editor.fieldTitle}</span>
+              <input className="ws-input" value={draft.title} onChange={event => set("title", event.target.value)} placeholder={c.editor.titlePlaceholder} disabled={!canWrite} aria-invalid={props.blockers.some(b => b.field === "title")} />
+            </label>
+            <label className="ws-field is-full">
+              <span>{c.editor.fieldBody}</span>
+              <textarea className="ws-input" value={draft.body} onChange={event => set("body", event.target.value)} placeholder={c.editor.bodyPlaceholder} disabled={!canWrite} aria-invalid={props.blockers.some(b => b.field === "body")} />
             </label>
 
-            <div className="adm__bilingual">
-              <div>
-                <span className="adm__lang-tag">{c.editor.english}</span>
-                <label className="ws-field"><span>{c.editor.fieldLabel}</span><input className="ws-input" value={draft.eyebrow} onChange={event => set("eyebrow", event.target.value)} placeholder={c.editor.labelPlaceholder} disabled={!canWrite} /></label>
-                <label className="ws-field"><span>{c.editor.fieldTitle}</span><input className="ws-input" value={draft.title} onChange={event => set("title", event.target.value)} placeholder={c.editor.titlePlaceholder} disabled={!canWrite} aria-invalid={props.blockers.some(b => b.field === "title")} /></label>
-                <label className="ws-field"><span>{c.editor.fieldBody}</span><textarea className="ws-input" value={draft.body} onChange={event => set("body", event.target.value)} placeholder={c.editor.bodyPlaceholder} disabled={!canWrite} aria-invalid={props.blockers.some(b => b.field === "body")} /></label>
-              </div>
-              <div lang="ar" dir="rtl">
-                <span className="adm__lang-tag">{c.editor.arabic}</span>
-                <label className="ws-field"><span>{c.editor.fieldLabelAr}</span><input className="ws-input" value={draft.eyebrowAr} onChange={event => set("eyebrowAr", event.target.value)} disabled={!canWrite} /></label>
-                <label className="ws-field"><span>{c.editor.fieldTitleAr}</span><input className="ws-input" value={draft.titleAr} onChange={event => set("titleAr", event.target.value)} disabled={!canWrite} /></label>
-                <label className="ws-field"><span>{c.editor.fieldBodyAr}</span><textarea className="ws-input" value={draft.bodyAr} onChange={event => set("bodyAr", event.target.value)} disabled={!canWrite} /></label>
-              </div>
-            </div>
-
             {draft.slot === "announcement" && (
-              <>
-                <label className="ws-field">
-                  <span>{c.editor.severity}</span>
-                  <select className="ws-input" value={draft.severity} onChange={event => set("severity", event.target.value as EditorDraft["severity"])} disabled={!canWrite}>
-                    {severities.map(value => <option key={value} value={value}>{copy.severity[value][locale]}</option>)}
-                  </select>
-                </label>
-                <label className="ws-switch">
-                  <input type="checkbox" checked={draft.requiresAck} onChange={event => set("requiresAck", event.target.checked)} disabled={!canWrite} />
-                  <span>{c.editor.requiresAck}</span>
-                </label>
-              </>
+              <label className="ws-switch is-full">
+                <input type="checkbox" checked={draft.requiresAck} onChange={event => set("requiresAck", event.target.checked)} disabled={!canWrite} />
+                <span>{c.editor.requiresAck}</span>
+              </label>
             )}
 
             {["week_ahead", "activity", "new_joiner"].includes(draft.slot) && (
@@ -285,99 +257,151 @@ export function ContentDesk(props: ContentDeskProps) {
                 <input className="ws-input" type="datetime-local" value={draft.eventStart} onChange={event => set("eventStart", event.target.value)} disabled={!canWrite} aria-invalid={props.blockers.some(b => b.field === "eventStart")} />
               </label>
             )}
-            {["activity", "opportunity", "week_ahead"].includes(draft.slot) && (
-              <div className="adm__bilingual">
-                <label className="ws-field"><span>{c.editor.location}</span><input className="ws-input" value={draft.location} onChange={event => set("location", event.target.value)} disabled={!canWrite} aria-invalid={props.blockers.some(b => b.field === "location")} /></label>
-                <label className="ws-field" lang="ar" dir="rtl"><span>{c.editor.locationAr}</span><input className="ws-input" value={draft.locationAr} onChange={event => set("locationAr", event.target.value)} disabled={!canWrite} /></label>
-              </div>
-            )}
-            {["opportunity", "new_joiner"].includes(draft.slot) && (
-              <div className="adm__bilingual">
-                <label className="ws-field"><span>{draft.slot === "new_joiner" ? c.editor.department : c.editor.functionArea}</span><input className="ws-input" value={draft.functionArea} onChange={event => set("functionArea", event.target.value)} disabled={!canWrite} aria-invalid={props.blockers.some(b => b.field === "functionArea")} /></label>
-                <label className="ws-field" lang="ar" dir="rtl"><span>{draft.slot === "new_joiner" ? c.editor.departmentAr : c.editor.functionAreaAr}</span><input className="ws-input" value={draft.functionAreaAr} onChange={event => set("functionAreaAr", event.target.value)} disabled={!canWrite} /></label>
-              </div>
-            )}
-            {draft.slot === "opportunity" && (
-              <label className="ws-field"><span>{c.editor.closingDate}</span><input className="ws-input" type="datetime-local" value={draft.closingDate} onChange={event => set("closingDate", event.target.value)} disabled={!canWrite} aria-invalid={props.blockers.some(b => b.field === "closingDate")} /></label>
-            )}
-            {["industry_watch", "resource"].includes(draft.slot) && (
-              <div className="adm__bilingual">
-                <label className="ws-field"><span>{draft.slot === "resource" ? c.editor.owningDepartment : c.editor.source}</span><input className="ws-input" value={draft.sourceName} onChange={event => set("sourceName", event.target.value)} disabled={!canWrite} aria-invalid={props.blockers.some(b => b.field === "sourceName")} /></label>
-                <label className="ws-field" lang="ar" dir="rtl"><span>{draft.slot === "resource" ? c.editor.owningDepartmentAr : c.editor.sourceAr}</span><input className="ws-input" value={draft.sourceNameAr} onChange={event => set("sourceNameAr", event.target.value)} disabled={!canWrite} /></label>
-              </div>
-            )}
-            {draft.slot === "resource" && (
+            {["activity", "opportunity"].includes(draft.slot) && (
               <label className="ws-field">
-                <span>{c.editor.resourceType}</span>
-                <select className="ws-input" value={draft.resourceType} onChange={event => set("resourceType", event.target.value as EditorDraft["resourceType"])} disabled={!canWrite} aria-invalid={props.blockers.some(b => b.field === "resourceType")}>
-                  <option value="">{c.editor.chooseType}</option>
-                  {resourceTypes.map(value => <option key={value} value={value}>{copy.resourceType[value][locale]}</option>)}
-                </select>
+                <span>{c.editor.location}</span>
+                <input className="ws-input" value={draft.location} onChange={event => set("location", event.target.value)} disabled={!canWrite} aria-invalid={props.blockers.some(b => b.field === "location")} />
               </label>
             )}
+            {["opportunity", "new_joiner"].includes(draft.slot) && (
+              <label className="ws-field">
+                <span>{draft.slot === "new_joiner" ? c.editor.department : c.editor.functionArea}</span>
+                <input className="ws-input" value={draft.functionArea} onChange={event => set("functionArea", event.target.value)} disabled={!canWrite} aria-invalid={props.blockers.some(b => b.field === "functionArea")} />
+              </label>
+            )}
+            {draft.slot === "opportunity" && (
+              <label className="ws-field">
+                <span>{c.editor.closingDate}</span>
+                <input className="ws-input" type="datetime-local" value={draft.closingDate} onChange={event => set("closingDate", event.target.value)} disabled={!canWrite} aria-invalid={props.blockers.some(b => b.field === "closingDate")} />
+              </label>
+            )}
+            {draft.slot === "industry_watch" && (
+              <label className="ws-field">
+                <span>{c.editor.source}</span>
+                <input className="ws-input" value={draft.sourceName} onChange={event => set("sourceName", event.target.value)} disabled={!canWrite} aria-invalid={props.blockers.some(b => b.field === "sourceName")} />
+              </label>
+            )}
+            {draft.slot === "resource" && (
+              <>
+                <label className="ws-field">
+                  <span>{c.editor.resourceType}</span>
+                  <select className="ws-input" value={draft.resourceType} onChange={event => set("resourceType", event.target.value as EditorDraft["resourceType"])} disabled={!canWrite} aria-invalid={props.blockers.some(b => b.field === "resourceType")}>
+                    <option value="">{c.editor.chooseType}</option>
+                    {resourceTypes.map(value => <option key={value} value={value}>{copy.resourceType[value][locale]}</option>)}
+                  </select>
+                </label>
+                <label className="ws-field">
+                  <span>{c.editor.owningDepartment}</span>
+                  <input className="ws-input" value={draft.sourceName} onChange={event => set("sourceName", event.target.value)} disabled={!canWrite} />
+                </label>
+              </>
+            )}
 
-            <label className="ws-field is-full"><span>{c.editor.externalUrl}</span><input className="ws-input" type="url" value={draft.linkUrl} onChange={event => set("linkUrl", event.target.value)} placeholder="https://…" disabled={!canWrite} /></label>
             <div className="ws-field is-full">
               <span>{c.editor.imageUpload}</span>
-              {draft.imageUrl && (
-                <img className="adm__image-preview" src={draft.imageUrl} alt={draft.imageAlt || c.editor.imagePreview} onError={event => { event.currentTarget.style.display = "none"; }} />
-              )}
-              <div className="adm__image-actions">
-                <input
-                  ref={fileRef}
-                  className="sr-only"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  disabled={!canWrite || uploading}
-                  onChange={async event => {
-                    const file = event.target.files?.[0];
-                    event.target.value = "";
-                    if (!file) return;
-                    setUploadError(null);
-                    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) { setUploadError(c.editor.wrongType); return; }
-                    if (file.size > 5_000_000) { setUploadError(c.editor.tooLarge); return; }
-                    setUploading(true);
-                    try {
-                      set("imageUrl", await props.onUploadImage(file));
-                    } catch (error) {
-                      setUploadError(error instanceof Error ? error.message : c.editor.uploadFailed);
-                    } finally {
-                      setUploading(false);
-                    }
-                  }}
-                />
-                <button type="button" className="ws-btn" onClick={() => fileRef.current?.click()} disabled={!canWrite || uploading}>
-                  <ImagePlus size={16} aria-hidden="true" /> {uploading ? c.editor.uploading : draft.imageUrl ? c.editor.replaceImage : c.editor.chooseFile}
-                </button>
+              <div className="adm__image-row">
                 {draft.imageUrl && (
-                  <button type="button" className="ws-btn" onClick={() => { set("imageUrl", ""); set("imageAlt", ""); set("imageAltAr", ""); }} disabled={!canWrite}>
-                    <Trash2 size={16} aria-hidden="true" /> {c.editor.removeImage}
-                  </button>
+                  <img className="adm__image-preview" src={draft.imageUrl} alt={draft.imageAlt || c.editor.imagePreview} onError={event => { event.currentTarget.style.display = "none"; }} />
                 )}
+                <div className="adm__image-actions">
+                  <input
+                    ref={fileRef}
+                    className="sr-only"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    disabled={!canWrite || uploading}
+                    onChange={async event => {
+                      const file = event.target.files?.[0];
+                      event.target.value = "";
+                      if (!file) return;
+                      setUploadError(null);
+                      if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) { setUploadError(c.editor.wrongType); return; }
+                      if (file.size > 5_000_000) { setUploadError(c.editor.tooLarge); return; }
+                      setUploading(true);
+                      try {
+                        const imageUrl = await props.onUploadImage(file);
+                        patch({ imageUrl, imageMode: "upload" });
+                      } catch (error) {
+                        setUploadError(error instanceof Error ? error.message : c.editor.uploadFailed);
+                      } finally {
+                        setUploading(false);
+                      }
+                    }}
+                  />
+                  <button type="button" className="ws-btn" onClick={() => fileRef.current?.click()} disabled={!canWrite || uploading}>
+                    <ImagePlus size={16} aria-hidden="true" /> {uploading ? c.editor.uploading : draft.imageUrl ? c.editor.replaceImage : c.editor.chooseFile}
+                  </button>
+                  {draft.imageUrl && (
+                    <button type="button" className="ws-btn" onClick={() => patch({ imageUrl: "", imageAlt: "", imageAltAr: "", imageMode: "none" })} disabled={!canWrite}>
+                      <Trash2 size={16} aria-hidden="true" /> {c.editor.removeImage}
+                    </button>
+                  )}
+                </div>
               </div>
               <span className="ws-field__hint">{c.editor.imageHint}</span>
               {uploadError && <span className="ws-field__error" role="alert">{uploadError}</span>}
-              <label className="ws-field">
-                <span className="ws-field__hint">{c.editor.orPasteUrl}</span>
-                <input className="ws-input" type="url" value={draft.imageUrl} onChange={event => set("imageUrl", event.target.value)} disabled={!canWrite} placeholder="https://…" />
-              </label>
+              {draft.imageUrl && (
+                <label className="ws-field">
+                  <span>{c.editor.imageAlt}</span>
+                  <input className="ws-input" value={draft.imageAlt} onChange={event => set("imageAlt", event.target.value)} disabled={!canWrite} aria-invalid={props.blockers.some(b => b.field === "imageAlt")} />
+                  <span className="ws-field__hint">{c.editor.imageAltHint}</span>
+                </label>
+              )}
             </div>
-            {draft.imageUrl && (
-              <div className="adm__bilingual">
-                <label className="ws-field"><span>{c.editor.imageAlt}</span><input className="ws-input" value={draft.imageAlt} onChange={event => set("imageAlt", event.target.value)} disabled={!canWrite} aria-invalid={props.blockers.some(b => b.field === "imageAlt")} /><span className="ws-field__hint">{c.editor.imageAltHint}</span></label>
-                <label className="ws-field" lang="ar" dir="rtl"><span>{c.editor.imageAltAr}</span><input className="ws-input" value={draft.imageAltAr} onChange={event => set("imageAltAr", event.target.value)} disabled={!canWrite} /></label>
-              </div>
-            )}
 
-            <label className="ws-field">
-              <span>{c.editor.cardSize}</span>
-              <select className="ws-input" value={draft.cardSize} onChange={event => set("cardSize", event.target.value as EditorDraft["cardSize"])} disabled={!canWrite}>
-                {cardSizes.map(value => <option key={value} value={value}>{c.sizes[value]}</option>)}
-              </select>
-            </label>
-            <label className="ws-field"><span>{c.editor.goLiveAt}</span><input className="ws-input" type="datetime-local" value={draft.scheduledFor} onChange={event => set("scheduledFor", event.target.value)} disabled={!canWrite} /></label>
-            <label className="ws-field"><span>{c.editor.expireAt}</span><input className="ws-input" type="datetime-local" value={draft.expiresAt} onChange={event => set("expiresAt", event.target.value)} disabled={!canWrite} aria-invalid={props.blockers.some(b => b.field === "expiresAt")} /></label>
-            <label className="ws-field"><span>{c.editor.reviewBy}</span><input className="ws-input" type="datetime-local" value={draft.reviewBy} onChange={event => set("reviewBy", event.target.value)} disabled={!canWrite} /></label>
+            <details className="adm__more" open={hasArabic}>
+              <summary>{c.editor.addArabic}</summary>
+              <div className="adm__form" style={{ marginBlockStart: "var(--space-4)" }}>
+                <label className="ws-field" lang="ar" dir="rtl"><span>{c.editor.fieldTitleAr}</span><input className="ws-input" value={draft.titleAr} onChange={event => set("titleAr", event.target.value)} disabled={!canWrite} /></label>
+                <label className="ws-field is-full" lang="ar" dir="rtl"><span>{c.editor.fieldBodyAr}</span><textarea className="ws-input" value={draft.bodyAr} onChange={event => set("bodyAr", event.target.value)} disabled={!canWrite} /></label>
+                {draft.imageUrl && (
+                  <label className="ws-field" lang="ar" dir="rtl"><span>{c.editor.imageAltAr}</span><input className="ws-input" value={draft.imageAltAr} onChange={event => set("imageAltAr", event.target.value)} disabled={!canWrite} /></label>
+                )}
+              </div>
+            </details>
+
+            <details className="adm__more" open={hasMore}>
+              <summary>{c.editor.moreOptions}</summary>
+              <div className="adm__form" style={{ marginBlockStart: "var(--space-4)" }}>
+                <label className="ws-field">
+                  <span>{c.editor.owner}</span>
+                  <select className="ws-input" value={draft.ownerUserId ?? ""} onChange={event => set("ownerUserId", event.target.value ? Number(event.target.value) : null)} disabled={!canWrite}>
+                    <option value="">{c.editor.assignToMe}</option>
+                    {props.owners.map(owner => <option key={owner.id} value={owner.id}>{owner.name || owner.email || c.editor.accountLabel(owner.id)}</option>)}
+                  </select>
+                </label>
+                <label className="ws-field">
+                  <span>{c.editor.fieldLabel}</span>
+                  <input className="ws-input" value={draft.eyebrow} onChange={event => set("eyebrow", event.target.value)} placeholder={c.editor.labelPlaceholder} disabled={!canWrite} />
+                </label>
+                <label className="ws-field" lang="ar" dir="rtl">
+                  <span>{c.editor.fieldLabelAr}</span>
+                  <input className="ws-input" value={draft.eyebrowAr} onChange={event => set("eyebrowAr", event.target.value)} disabled={!canWrite} />
+                </label>
+                {draft.slot === "announcement" && (
+                  <label className="ws-field">
+                    <span>{c.editor.severity}</span>
+                    <select className="ws-input" value={draft.severity} onChange={event => set("severity", event.target.value as EditorDraft["severity"])} disabled={!canWrite}>
+                      {severities.map(value => <option key={value} value={value}>{copy.severity[value][locale]}</option>)}
+                    </select>
+                  </label>
+                )}
+                <label className="ws-field is-full"><span>{c.editor.externalUrl}</span><input className="ws-input" type="url" value={draft.linkUrl} onChange={event => set("linkUrl", event.target.value)} placeholder="https://…" disabled={!canWrite} /></label>
+                <label className="ws-field is-full">
+                  <span className="ws-field__hint">{c.editor.orPasteUrl}</span>
+                  <input className="ws-input" type="url" value={draft.imageUrl} onChange={event => set("imageUrl", event.target.value)} disabled={!canWrite} placeholder="https://…" />
+                </label>
+                <label className="ws-field">
+                  <span>{c.editor.cardSize}</span>
+                  <select className="ws-input" value={draft.cardSize} onChange={event => set("cardSize", event.target.value as EditorDraft["cardSize"])} disabled={!canWrite}>
+                    {cardSizes.map(value => <option key={value} value={value}>{c.sizes[value]}</option>)}
+                  </select>
+                </label>
+                <label className="ws-field"><span>{c.editor.goLiveAt}</span><input className="ws-input" type="datetime-local" value={draft.scheduledFor} onChange={event => set("scheduledFor", event.target.value)} disabled={!canWrite} /></label>
+                <label className="ws-field"><span>{c.editor.expireAt}</span><input className="ws-input" type="datetime-local" value={draft.expiresAt} onChange={event => set("expiresAt", event.target.value)} disabled={!canWrite} aria-invalid={props.blockers.some(b => b.field === "expiresAt")} /></label>
+                <label className="ws-field"><span>{c.editor.reviewBy}</span><input className="ws-input" type="datetime-local" value={draft.reviewBy} onChange={event => set("reviewBy", event.target.value)} disabled={!canWrite} /></label>
+              </div>
+            </details>
           </div>
 
           {props.blockers.length > 0 && (

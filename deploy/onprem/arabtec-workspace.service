@@ -1,0 +1,39 @@
+[Unit]
+Description=Arabtec Employee Workspace
+Documentation=https://github.com/Meez2710/Arabtec-Employee-Dashboard
+After=network-online.target mysql.service
+Wants=network-online.target
+Requires=mysql.service
+
+[Service]
+Type=simple
+User=arabtec
+Group=arabtec
+WorkingDirectory=/opt/arabtec-workspace
+EnvironmentFile=/etc/arabtec-workspace.env
+ExecStart=/usr/bin/node /opt/arabtec-workspace/dist/index.js
+
+Restart=always
+RestartSec=5
+# Give up only if it fails repeatedly in a short window.
+StartLimitBurst=5
+StartLimitIntervalSec=120
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=arabtec-workspace
+
+# The service needs to write uploads and nothing else on the filesystem.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/arabtec-workspace
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

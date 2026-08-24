@@ -41,6 +41,12 @@ export const blankDraft = (): EditorDraft => ({
   scheduledFor: "", expiresAt: "", reviewBy: "", ownerUserId: null,
 });
 
+/** If the editor leaves the short tag empty, use the section name so the server still receives a value. */
+export function resolvedEyebrow(eyebrow: string, sectionLabel: string) {
+  const trimmed = eyebrow.trim();
+  return trimmed || sectionLabel.trim() || "Update";
+}
+
 /**
  * `datetime-local` inputs are timezone-naive. The console runs on Cairo time, so
  * we render the Cairo wall clock into the input and read it back as Cairo.
@@ -63,10 +69,7 @@ export function toDateInput(value?: Date | string | null): string {
 const dateInputPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
 
 export function fromDateInput(value: string): Date | null {
-  // Date parsing is lenient enough to turn junk into a real instant, so the
-  // shape is checked before it is trusted.
   if (!value || !dateInputPattern.test(value)) return null;
-  // Interpret the entered wall clock as Cairo time by probing the offset at that instant.
   const naive = new Date(`${value}:00Z`);
   if (Number.isNaN(naive.getTime())) return null;
   const probe = new Date(naive.getTime());

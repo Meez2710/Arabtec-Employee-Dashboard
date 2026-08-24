@@ -1,0 +1,48 @@
+name: Standalone deployment validation
+
+on:
+  push:
+    branches: [deployment/standalone-mac]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        run: pnpm check
+
+      - name: Test
+        run: pnpm test
+
+      - name: Production build
+        run: pnpm build
+
+      - name: Validate Docker Compose
+        run: |
+          cp .env.example .env
+          docker compose config --quiet
+
+      - name: Build production container
+        run: docker build --tag arabtec-workspace:standalone .
